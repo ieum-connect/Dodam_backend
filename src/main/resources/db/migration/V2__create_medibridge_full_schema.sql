@@ -1,4 +1,4 @@
--- MediBridge 전체 도메인 스키마
+-- Dodam 전체 도메인 스키마
 -- PostgreSQL + pgvector 기준
 
 CREATE EXTENSION IF NOT EXISTS vector;
