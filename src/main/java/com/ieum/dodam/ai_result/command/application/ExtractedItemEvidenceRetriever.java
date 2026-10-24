@@ -26,7 +26,7 @@ public class ExtractedItemEvidenceRetriever implements AiEvidenceRetriever {
     /** 저장소 조회 행을 citation 가능한 근거로 변환한다. */
     private AiResultGenerationClient.Evidence toEvidence(ResultDocumentEvidenceRepository.EvidenceRow row) {
         return new AiResultGenerationClient.Evidence(
-                UUID.randomUUID(), "EXTRACTED_ITEM", UUID.fromString(row.getItemId()),
+                UUID.randomUUID(), "EXTRACTED_ITEM",
                 UUID.fromString(row.getDocumentId()), row.getPageNo(), row.getLabel(), row.getSourceText(),
                 row.getRawValue(), row.getUnit(), row.getReferenceRange()
         );
