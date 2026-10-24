@@ -4,17 +4,17 @@ services:
     ports:
       - "5433:5432"
     environment:
-      POSTGRES_DB: medibridge
-      POSTGRES_USER: medibridge
-      POSTGRES_PASSWORD: medibridge_local
+      POSTGRES_DB: dodam
+      POSTGRES_USER: dodam
+      POSTGRES_PASSWORD: dodam_local
     volumes:
-      - medibridge-pg:/var/lib/postgresql/data
+      - dodam-pg:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U medibridge -d medibridge"]
+      test: ["CMD-SHELL", "pg_isready -U dodam -d dodam"]
       interval: 5s
       timeout: 5s
       retries: 12
 
 volumes:
-  medibridge-pg:
+  dodam-pg:

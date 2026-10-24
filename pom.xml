@@ -10,10 +10,10 @@
     <relativePath/>
   </parent>
   <groupId>com.ieum</groupId>
-  <artifactId>medibridge</artifactId>
+  <artifactId>dodam</artifactId>
   <version>0.0.1-SNAPSHOT</version>
-  <name>medibridge</name>
-  <description>MediBridge AI · 역할 A Spring · 인증·인가 API</description>
+  <name>dodam</name>
+  <description>Dodam AI · 역할 A Spring · 인증·인가 API</description>
   <properties>
     <java.version>17</java.version>
   </properties>

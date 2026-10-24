@@ -2,7 +2,7 @@
 --
 -- 실행:
 --   Get-Content -Raw .\dummydata\guided-rag-chat.sql |
---     docker exec -i medibridge-backend-postgres-1 psql -U medibridge -d medibridge
+--     docker exec -i dodam-backend-postgres-1 psql -U dodam -d dodam
 --
 -- demo-patient(김순자), demo-caregiver(김민지) 계정과 혈액검사 2건을 만든다.
 -- 고정 UUID를 사용하므로 반복 실행해도 이 파일이 만든 데이터만 갱신한다.
