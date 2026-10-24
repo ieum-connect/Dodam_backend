@@ -41,8 +41,12 @@ SELECT id AS demo_patient_user_id FROM users WHERE kakao_id = 'demo-patient' \gs
 SELECT id AS demo_caregiver_user_id FROM users WHERE kakao_id = 'demo-caregiver' \gset
 
 INSERT INTO patients (id, user_id, birth_date, gender, invite_code, status)
-VALUES ('12000000-0000-0000-0000-000000000001', :'demo_patient_user_id', DATE '1948-03-12', 'FEMALE', 'DUMMY001PATIENT', 'ACTIVE')
-ON CONFLICT (user_id) DO UPDATE SET status = EXCLUDED.status;
+SELECT '12000000-0000-0000-0000-000000000001', :'demo_patient_user_id', DATE '1948-03-12', 'FEMALE', 'DUMMY001PATIENT', 'ACTIVE'
+WHERE NOT EXISTS (SELECT 1 FROM patients WHERE user_id = :'demo_patient_user_id');
+
+UPDATE patients
+SET status = 'ACTIVE'
+WHERE user_id = :'demo_patient_user_id';
 
 SELECT id AS demo_patient_id FROM patients WHERE user_id = :'demo_patient_user_id' \gset
 

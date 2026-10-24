@@ -27,7 +27,7 @@ class LocalDocumentStorageTest {
 
     @BeforeEach
     void setUp() {
-        storage = new LocalDocumentStorage(root.toString());
+        storage = new LocalDocumentStorage(root.toString(), "", "8081");
     }
 
     @Test
@@ -64,7 +64,7 @@ class LocalDocumentStorageTest {
     void createSignedUrlKeepsLocalFormat() {
         String url = storage.createSignedUrl(KEY, Duration.ofMinutes(5));
 
-        assertThat(url).startsWith("http://localhost:8080/local-documents/" + KEY + "?expiresAt=");
+        assertThat(url).startsWith("http://localhost:8081/local-documents/" + KEY + "?expiresAt=");
     }
 
     private void storeSample() {

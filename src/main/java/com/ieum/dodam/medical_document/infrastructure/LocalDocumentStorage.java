@@ -19,19 +19,27 @@ import java.time.Instant;
 @Component
 public class LocalDocumentStorage implements DocumentStoragePort {
 
-    private static final String BASE_URL = "http://localhost:8080/local-documents/";
     private static final String DEFAULT_ROOT = "./data/object-storage";
 
     private final Path root;
+    private final String baseUrl;
 
-    public LocalDocumentStorage(@Value("${dodam.storage.local-root:" + DEFAULT_ROOT + "}") String localRoot) {
+    public LocalDocumentStorage(
+            @Value("${dodam.storage.local-root:" + DEFAULT_ROOT + "}") String localRoot,
+            @Value("${dodam.storage.public-base-url:}") String publicBaseUrl,
+            @Value("${server.port:8081}") String serverPort) {
         String rootPath = StringUtils.hasText(localRoot) ? localRoot : DEFAULT_ROOT;
         this.root = Path.of(rootPath).toAbsolutePath().normalize();
+        // 서버가 실제로 떠 있는 포트를 쓴다. 예전 기본값(8080)이 하드코딩돼 원본 보기가 깨져 있었다.
+        String base = StringUtils.hasText(publicBaseUrl)
+                ? publicBaseUrl
+                : "http://localhost:" + serverPort + "/local-documents/";
+        this.baseUrl = base.endsWith("/") ? base : base + "/";
     }
 
     @Override
     public String createSignedUrl(String storageKey, Duration ttl) {
-        return BASE_URL + storageKey + "?expiresAt=" + Instant.now().plus(ttl);
+        return baseUrl + storageKey + "?expiresAt=" + Instant.now().plus(ttl);
     }
 
     /** 루트 아래 storageKey 경로에 원본 파일을 씁니다. 상위 폴더가 없으면 만들고, 반환값은 없습니다. */

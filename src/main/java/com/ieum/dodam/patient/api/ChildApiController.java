@@ -91,6 +91,23 @@ public class ChildApiController {
         return response(child);
     }
 
+    public record ParentResponse(UUID userId, String name, boolean me) {}
+
+    /** 아이에 연결된 보호자(부모·조부모 등) 목록을 반환한다. */
+    @GetMapping("/{id}/parents")
+    @Transactional(readOnly = true)
+    public List<ParentResponse> parents(@AuthenticationPrincipal OAuth2User principal, @PathVariable UUID id) {
+        User me = parent(principal);
+        if (!relations.existsByPatientIdAndCaregiverIdAndStatus(id, me.getId(), CareRelationStatus.ACTIVE)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "연결된 아이만 조회할 수 있습니다.");
+        }
+        return relations.findByPatientIdAndStatus(id, CareRelationStatus.ACTIVE).stream()
+                .map(link -> users.findById(link.getCaregiverId()).orElse(null))
+                .filter(Objects::nonNull)
+                .map(user -> new ParentResponse(user.getId(), user.getName(), user.getId().equals(me.getId())))
+                .toList();
+    }
+
     @PostMapping("/join")
     @Transactional
     public ChildResponse join(@AuthenticationPrincipal OAuth2User principal, @RequestBody JoinRequest request) {
@@ -141,7 +158,14 @@ public class ChildApiController {
     }
 
     private ChildResponse response(Patient child) {
-        return new ChildResponse(child.getId(), child.getChildName(), child.getBirthDate(),
+        String displayName = child.getChildName();
+        if (displayName == null || displayName.isBlank() || "이름 확인 필요".equals(displayName.trim())) {
+            displayName = users.findById(child.getUserId())
+                    .map(User::getName)
+                    .filter(name -> name != null && !name.isBlank())
+                    .orElse(displayName);
+        }
+        return new ChildResponse(child.getId(), displayName, child.getBirthDate(),
                 CareRelationCode.display(child.getInviteCode()),
                 (int) relations.countByPatientIdAndStatus(child.getId(), CareRelationStatus.ACTIVE));
     }
