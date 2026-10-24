@@ -62,7 +62,7 @@ logging:
 
 dodam:
   demo-login: ${DEMO_LOGIN:false}
-  frontend-origin: ${FRONTEND_ORIGIN:http://localhost:3000}
+  frontend-origin: ${FRONTEND_ORIGIN:http://localhost:4173}
   document:
     upload:
       max-bytes: 20971520

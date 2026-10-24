@@ -8,8 +8,8 @@ public class FrontendOrigin {
 
     private final String origin;
 
-    public FrontendOrigin(@Value("${dodam.frontend-origin:http://localhost:3000}") String origin) {
-        String trimmed = origin == null ? "http://localhost:3000" : origin.trim();
+    public FrontendOrigin(@Value("${dodam.frontend-origin:http://localhost:4173}") String origin) {
+        String trimmed = origin == null ? "http://localhost:4173" : origin.trim();
         this.origin = trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
     }
 
