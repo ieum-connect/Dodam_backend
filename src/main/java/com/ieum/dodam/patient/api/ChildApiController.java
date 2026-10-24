@@ -110,8 +110,10 @@ public class ChildApiController {
         if (activeParents == 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "연결된 부모가 없어 초대 코드를 사용할 수 없습니다.");
         }
-        if (activeParents >= 2) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "이 아이에는 이미 부모 두 명이 연결되어 있습니다.");
+        // 부모·조부모·보호자 등 가족 돌봄 구성원이 함께 관리할 수 있도록
+        // 한 아이당 최대 5명의 활성 보호자를 허용한다.
+        if (activeParents >= 5) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이 아이에는 보호자 다섯 명이 이미 연결되어 있습니다.");
         }
         CareRelation link = new CareRelation();
         link.setPatientId(child.getId());
