@@ -1,0 +1,2 @@
+-- 전체 ERD 스키마는 V2__create_silvercare_full_schema.sql에서 생성한다.
+-- 기존 V1 구조(users, care_relations)는 새 ERD 기준과 달라 사용하지 않는다.
