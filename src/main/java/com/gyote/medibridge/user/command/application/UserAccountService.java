@@ -1,0 +1,159 @@
+package com.gyote.medibridge.user.command.application;
+
+import com.gyote.medibridge.user.domain.User;
+import com.gyote.medibridge.user.domain.UserRole;
+import com.gyote.medibridge.user.domain.UserStatus;
+import com.gyote.medibridge.user.domain.repository.UserRepository;
+import com.gyote.medibridge.patient.domain.Patient;
+import com.gyote.medibridge.patient.domain.repository.PatientRepository;
+import com.gyote.medibridge.global.exception.BusinessException;
+import com.gyote.medibridge.user.error.UserErrorCode;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.security.SecureRandom;
+
+@Service
+public class UserAccountService {
+
+    private static final String INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    private final UserRepository users;
+    private final PatientRepository patients;
+
+    public UserAccountService(UserRepository users, PatientRepository patients) {
+        this.users = users;
+        this.patients = patients;
+    }
+
+    @Transactional
+    public User loginOrRegister(String kakaoId, String nickname) {
+        if (kakaoId == null || kakaoId.isBlank()) {
+            throw new BusinessException(UserErrorCode.KAKAO_ID_REQUIRED);
+        }
+        String name = (nickname == null || nickname.isBlank()) ? "이용자" : nickname.trim();
+        return users.findByKakaoId(kakaoId).map(existing -> {
+            existing.setName(name);
+            return existing;
+        }).orElseGet(() -> {
+            User created = new User();
+            created.setKakaoId(kakaoId);
+            created.setName(name);
+            created.setRole(UserRole.PENDING);
+            created.setStatus(UserStatus.ACTIVE);
+            return users.save(created);
+        });
+    }
+
+    @Transactional
+    public User chooseRole(String kakaoId, UserRole role) {
+        if (role != UserRole.PATIENT && role != UserRole.CAREGIVER) {
+            throw new BusinessException(UserErrorCode.INVALID_ROLE);
+        }
+        User user = users.findByKakaoId(kakaoId)
+                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+        if (user.getRole() != UserRole.PENDING) {
+            throw new BusinessException(UserErrorCode.ROLE_ALREADY_SELECTED);
+        }
+        user.setRole(role);
+        if (role == UserRole.PATIENT) ensurePatientProfile(user);
+        return user;
+    }
+
+    @Transactional
+    public Patient ensurePatientProfile(User user) {
+        if (user.getRole() != UserRole.PATIENT) {
+            throw new BusinessException(UserErrorCode.INVALID_ROLE);
+        }
+        return patients.findByUserId(user.getId()).orElseGet(() -> {
+            Patient patient = new Patient();
+            patient.setUserId(user.getId());
+            patient.setInviteCode(newInviteCode());
+            return patients.save(patient);
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public String patientInviteCode(User user) {
+        if (user.getRole() != UserRole.PATIENT) {
+            return null;
+        }
+        return patients.findByUserId(user.getId())
+                .map(Patient::getInviteCode)
+                .orElse(null);
+    }
+
+    private String newInviteCode() {
+        for (int attempt = 0; attempt < 20; attempt++) {
+            StringBuilder code = new StringBuilder(6);
+            for (int i = 0; i < 6; i++) {
+                code.append(INVITE_ALPHABET.charAt(RANDOM.nextInt(INVITE_ALPHABET.length())));
+            }
+            String candidate = code.toString();
+            if (patients.findByInviteCode(candidate).isEmpty()) {
+                return candidate;
+            }
+        }
+        throw new BusinessException(UserErrorCode.INVITE_CODE_GENERATION_FAILED);
+    }
+
+    @Transactional
+    public User ensureDemoUser(UserRole role) {
+        if (role != UserRole.PATIENT && role != UserRole.CAREGIVER) {
+            throw new BusinessException(UserErrorCode.INVALID_ROLE);
+        }
+        String kakaoId = User.DEMO_KAKAO_ID_PREFIX + (role == UserRole.CAREGIVER ? "caregiver" : "patient");
+        String name = role == UserRole.CAREGIVER ? "김민지" : "김순자";
+        User user = users.findByKakaoId(kakaoId).orElseGet(() -> {
+            User created = new User();
+            created.setKakaoId(kakaoId);
+            created.setName(name);
+            created.setRole(role);
+            created.setStatus(UserStatus.ACTIVE);
+            return users.save(created);
+        });
+        user.setName(name);
+        if (user.getRole() == UserRole.PENDING) {
+            user.setRole(role);
+        }
+        if (role == UserRole.PATIENT) {
+            ensurePatientProfile(user);
+        }
+        return user;
+    }
+
+    /** 이름으로 선택한 시연 계정을 준비한다. 기존 두 계정의 데이터는 유지한다. */
+    @Transactional
+    public User ensureNamedDemoUser(String account) {
+        if ("MINJI".equals(account)) return ensureDemoUser(UserRole.CAREGIVER);
+        if ("SOONJA".equals(account)) return ensureNamedCaregiver("soonja", "김순자");
+        String name = switch (account) {
+            case "JIHUN" -> "박지훈";
+            case "SEOYEON" -> "이서연";
+            default -> throw new BusinessException(UserErrorCode.INVALID_ROLE);
+        };
+        String key = User.DEMO_KAKAO_ID_PREFIX + account.toLowerCase(java.util.Locale.ROOT);
+        User user = users.findByKakaoId(key).orElseGet(() -> {
+            User created = new User();
+            created.setKakaoId(key);
+            created.setName(name);
+            created.setRole(UserRole.CAREGIVER);
+            created.setStatus(UserStatus.ACTIVE);
+            return users.save(created);
+        });
+        return user;
+    }
+
+    private User ensureNamedCaregiver(String keySuffix, String name) {
+        String key = User.DEMO_KAKAO_ID_PREFIX + keySuffix;
+        return users.findByKakaoId(key).orElseGet(() -> {
+            User created = new User();
+            created.setKakaoId(key);
+            created.setName(name);
+            created.setRole(UserRole.CAREGIVER);
+            created.setStatus(UserStatus.ACTIVE);
+            return users.save(created);
+        });
+    }
+}
