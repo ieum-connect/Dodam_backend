@@ -8,6 +8,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
@@ -18,8 +19,14 @@ public class Patient {
     @Column(length = 36, nullable = false)
     private UUID id;
 
-    @Column(name = "user_id", nullable = false, unique = true, length = 36)
+    @Column(name = "user_id", nullable = false, length = 36)
     private UUID userId;
+
+    @Column(name = "child_name", length = 100)
+    private String childName;
+
+    @Column(name = "birth_date")
+    private LocalDate birthDate;
 
     @Column(name = "invite_code", nullable = false, unique = true, length = 16)
     private String inviteCode;
@@ -52,6 +59,11 @@ public class Patient {
     public UUID getUserId() {
         return userId;
     }
+
+    public String getChildName() { return childName; }
+    public void setChildName(String childName) { this.childName = childName; }
+    public LocalDate getBirthDate() { return birthDate; }
+    public void setBirthDate(LocalDate birthDate) { this.birthDate = birthDate; }
 
     public void setUserId(UUID userId) {
         this.userId = userId;

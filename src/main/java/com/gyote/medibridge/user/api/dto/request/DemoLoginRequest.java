@@ -30,7 +30,7 @@ public class DemoLoginRequest {
         } catch (IllegalArgumentException ex) {
             throw new BusinessException(UserErrorCode.INVALID_ROLE);
         }
-        if (chosen != UserRole.PATIENT && chosen != UserRole.CAREGIVER) {
+        if (chosen != UserRole.CAREGIVER) {
             throw new BusinessException(UserErrorCode.INVALID_ROLE);
         }
         return chosen;

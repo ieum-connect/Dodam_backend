@@ -22,6 +22,8 @@ public interface CareRelationRepository extends JpaRepository<CareRelation, UUID
 
     List<CareRelation> findByCaregiverIdAndStatus(UUID caregiverId, CareRelationStatus status);
 
+    long countByPatientIdAndStatus(UUID patientId, CareRelationStatus status);
+
     /** 환자와 보호자 및 허용 상태에 해당하는 첫 관계를 조회한다. */
     Optional<CareRelation> findFirstByPatientIdAndCaregiverIdAndStatusIn(
             UUID patientId,

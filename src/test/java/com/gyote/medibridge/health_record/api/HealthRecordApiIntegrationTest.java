@@ -11,13 +11,10 @@ import com.gyote.medibridge.patient.domain.repository.PatientRepository;
 import com.gyote.medibridge.user.command.application.UserAccountService;
 import com.gyote.medibridge.user.domain.*;
 
-import jakarta.servlet.http.Cookie;
-
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -92,50 +89,6 @@ class HealthRecordApiIntegrationTest {
         mvc.perform(get("/api/health-records").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isEmpty());
-    }
-
-    @Test
-    void switchingChangesSessionAndJwtAndRestoresExistingPersonalRecords() throws Exception {
-        String id = record("전환 전 기록");
-        var switched =
-                mvc.perform(
-                                post("/api/accounts/switch")
-                                        .header("Authorization", "Bearer " + token)
-                                        .contentType("application/json")
-                                        .content("{\"role\":\"CAREGIVER\"}"))
-                        .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.role").value("CAREGIVER"))
-                        .andReturn();
-        MockHttpSession session = (MockHttpSession) switched.getRequest().getSession(false);
-        assertThat(session).isNotNull();
-        mvc.perform(get("/api/me").session(session))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.role").value("CAREGIVER"));
-        String cookieHeader = switched.getResponse().getHeader("Set-Cookie");
-        assertThat(cookieHeader).startsWith("MEDIBRIDGE_TOKEN=");
-        Cookie cookie =
-                new Cookie(
-                        "MEDIBRIDGE_TOKEN",
-                        cookieHeader.split(";", 2)[0].substring("MEDIBRIDGE_TOKEN=".length()));
-        mvc.perform(get("/api/me").cookie(cookie))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.role").value("CAREGIVER"));
-        mvc.perform(get("/api/health-records/" + id).cookie(cookie))
-                .andExpect(status().isForbidden());
-        var back =
-                mvc.perform(
-                                post("/api/accounts/switch")
-                                        .session(session)
-                                        .contentType("application/json")
-                                        .content("{\"role\":\"PATIENT\"}"))
-                        .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.id").value(personal.getId().toString()))
-                        .andReturn();
-        mvc.perform(
-                        get("/api/health-records/" + id)
-                                .session((MockHttpSession) back.getRequest().getSession(false)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.body").value("전환 전 기록"));
     }
 
     @Test

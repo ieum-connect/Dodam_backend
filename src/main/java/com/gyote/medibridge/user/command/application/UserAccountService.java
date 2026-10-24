@@ -57,9 +57,7 @@ public class UserAccountService {
             throw new BusinessException(UserErrorCode.ROLE_ALREADY_SELECTED);
         }
         user.setRole(role);
-        if (role == UserRole.PATIENT) {
-            ensurePatientProfile(user);
-        }
+        if (role == UserRole.PATIENT) ensurePatientProfile(user);
         return user;
     }
 
@@ -129,7 +127,7 @@ public class UserAccountService {
     @Transactional
     public User ensureNamedDemoUser(String account) {
         if ("MINJI".equals(account)) return ensureDemoUser(UserRole.CAREGIVER);
-        if ("SOONJA".equals(account)) return ensureDemoUser(UserRole.PATIENT);
+        if ("SOONJA".equals(account)) return ensureNamedCaregiver("soonja", "김순자");
         String name = switch (account) {
             case "JIHUN" -> "박지훈";
             case "SEOYEON" -> "이서연";
@@ -140,11 +138,22 @@ public class UserAccountService {
             User created = new User();
             created.setKakaoId(key);
             created.setName(name);
-            created.setRole(UserRole.PATIENT);
+            created.setRole(UserRole.CAREGIVER);
             created.setStatus(UserStatus.ACTIVE);
             return users.save(created);
         });
-        ensurePatientProfile(user);
         return user;
+    }
+
+    private User ensureNamedCaregiver(String keySuffix, String name) {
+        String key = User.DEMO_KAKAO_ID_PREFIX + keySuffix;
+        return users.findByKakaoId(key).orElseGet(() -> {
+            User created = new User();
+            created.setKakaoId(key);
+            created.setName(name);
+            created.setRole(UserRole.CAREGIVER);
+            created.setStatus(UserStatus.ACTIVE);
+            return users.save(created);
+        });
     }
 }

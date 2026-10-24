@@ -2,6 +2,7 @@ package com.gyote.medibridge.global.auth.oauth;
 
 import com.gyote.medibridge.user.command.application.UserAccountService;
 import com.gyote.medibridge.user.domain.User;
+import com.gyote.medibridge.user.domain.UserRole;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
@@ -28,6 +29,9 @@ public class KakaoOAuth2UserService extends DefaultOAuth2UserService {
         OAuth2User oauthUser = super.loadUser(userRequest);
         String kakaoId = kakaoId(oauthUser);
         User user = accounts.loginOrRegister(kakaoId, nickname(oauthUser));
+        if (user.getRole() == UserRole.PENDING) {
+            user = accounts.chooseRole(kakaoId, UserRole.CAREGIVER);
+        }
 
         Map<String, Object> attributes = new HashMap<>(oauthUser.getAttributes());
         attributes.put("id", kakaoId);

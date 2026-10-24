@@ -62,6 +62,9 @@ public class CareRelationCommandService {
                                 () ->
                                         new BusinessException(
                                                 CareRelationErrorCode.INVITE_CODE_NOT_FOUND));
+        if (patient.getChildName() != null) {
+            throw new BusinessException(CareRelationErrorCode.INVALID_RELATION_STATE);
+        }
         if (patient.getUserId().equals(caregiver.getId())) {
             throw new BusinessException(CareRelationErrorCode.SELF_RELATION_NOT_ALLOWED);
         }
