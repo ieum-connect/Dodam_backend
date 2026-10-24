@@ -1,0 +1,48 @@
+package com.ieum.medibridge.user.query.application;
+
+import com.ieum.medibridge.user.domain.User;
+import com.ieum.medibridge.user.domain.UserRole;
+import com.ieum.medibridge.user.domain.repository.UserRepository;
+import com.ieum.medibridge.global.exception.BusinessException;
+import com.ieum.medibridge.user.error.UserErrorCode;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+import java.util.UUID;
+
+/** Read-only user lookup use cases. */
+@Service
+@Transactional(readOnly = true)
+public class UserQueryService {
+
+    private final UserRepository users;
+
+    public UserQueryService(UserRepository users) {
+        this.users = users;
+    }
+
+    public Optional<User> findByKakaoId(String kakaoId) {
+        if (kakaoId == null || kakaoId.isBlank()) {
+            return Optional.empty();
+        }
+        return users.findByKakaoId(kakaoId);
+    }
+
+    public User requireByKakaoId(String kakaoId) {
+        return findByKakaoId(kakaoId)
+                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+    }
+
+    /** 내부 사용자 식별자로 사용자를 조회하고 없으면 오류를 발생시킨다. */
+    public User requireById(UUID userId) {
+        return users.findById(userId)
+                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+    }
+
+    public boolean needsRole(String kakaoId) {
+        return findByKakaoId(kakaoId)
+                .map(user -> user.getRole() == UserRole.PENDING)
+                .orElse(false);
+    }
+}

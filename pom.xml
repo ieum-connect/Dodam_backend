@@ -9,7 +9,7 @@
     <version>3.3.4</version>
     <relativePath/>
   </parent>
-  <groupId>com.gyote</groupId>
+  <groupId>com.ieum</groupId>
   <artifactId>medibridge</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <name>medibridge</name>
