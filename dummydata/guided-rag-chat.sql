@@ -2,7 +2,7 @@
 --
 -- 실행:
 --   Get-Content -Raw .\dummydata\guided-rag-chat.sql |
---     docker exec -i medibridge-backend-postgres-1 psql -U medibridge -d medibridge
+--     docker exec -i dodam-backend-postgres-1 psql -U dodam -d dodam
 --
 -- demo-patient(김순자), demo-caregiver(김민지) 계정과 혈액검사 2건을 만든다.
 -- 고정 UUID를 사용하므로 반복 실행해도 이 파일이 만든 데이터만 갱신한다.
@@ -41,8 +41,12 @@ SELECT id AS demo_patient_user_id FROM users WHERE kakao_id = 'demo-patient' \gs
 SELECT id AS demo_caregiver_user_id FROM users WHERE kakao_id = 'demo-caregiver' \gset
 
 INSERT INTO patients (id, user_id, birth_date, gender, invite_code, status)
-VALUES ('12000000-0000-0000-0000-000000000001', :'demo_patient_user_id', DATE '1948-03-12', 'FEMALE', 'DUMMY001PATIENT', 'ACTIVE')
-ON CONFLICT (user_id) DO UPDATE SET status = EXCLUDED.status;
+SELECT '12000000-0000-0000-0000-000000000001', :'demo_patient_user_id', DATE '1948-03-12', 'FEMALE', 'DUMMY001PATIENT', 'ACTIVE'
+WHERE NOT EXISTS (SELECT 1 FROM patients WHERE user_id = :'demo_patient_user_id');
+
+UPDATE patients
+SET status = 'ACTIVE'
+WHERE user_id = :'demo_patient_user_id';
 
 SELECT id AS demo_patient_id FROM patients WHERE user_id = :'demo_patient_user_id' \gset
 

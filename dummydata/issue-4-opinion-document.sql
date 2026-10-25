@@ -1,7 +1,7 @@
 -- 소견서 AI 의료문서 조회 화면 확인용 더미 데이터
 --
 -- 실행:
---   docker exec -i medibridge-postgres-1 psql -U medibridge -d medibridge < dummydata/issue-4-opinion-document.sql
+--   docker exec -i dodam-postgres-1 psql -U dodam -d dodam < dummydata/issue-4-opinion-document.sql
 --
 -- demo-patient / demo-caregiver 사용자가 없으면 로컬 확인용 계정을 함께 만든다.
 -- 고정 UUID를 사용하므로 같은 파일을 여러 번 실행해도 동일한 데이터만 갱신한다.
