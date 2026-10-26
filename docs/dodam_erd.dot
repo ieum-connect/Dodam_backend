@@ -1,0 +1,319 @@
+digraph dodam_erd {
+  graph [rankdir=LR, splines=spline, overlap=false, nodesep=0.45, ranksep=1.1, fontname="DejaVu Sans",
+         bgcolor="#FFFBFC", pad=0.5, compound=true, label=<<B>Dodam (이음) · ERD</B>>, labelloc=t, fontsize=30, fontcolor="#7A2E4A"];
+  node  [shape=plaintext, fontname="DejaVu Sans", fontsize=11];
+  edge  [color="#C2185B", penwidth=1.3, arrowsize=0.7, fontname="DejaVu Sans", fontsize=9, fontcolor="#8E4A62"];
+
+  // ---------- helpers: node style via HTML tables ----------
+  // header color per domain
+
+  subgraph cluster_account {
+    label="계정 · 권한"; style="rounded,filled"; fillcolor="#FDEFF4"; color="#E8A0BC"; fontcolor="#7A2E4A"; fontsize=18; penwidth=2;
+    users [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#D81B60" COLSPAN="2"><FONT COLOR="white"><B>users</B> 사용자</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">email / password_hash</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">name, kakao_id (U)</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">role, status</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">account_group_id</TD></TR>
+    </TABLE>>];
+    patients [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#D81B60" COLSPAN="2"><FONT COLOR="white"><B>patients</B> 아이 프로필</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">user_id → users</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">child_name, birth_date</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">invite_code (U), status</TD></TR>
+    </TABLE>>];
+    caregiver_links [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#D81B60" COLSPAN="2"><FONT COLOR="white"><B>caregiver_links</B> 돌봄 연결</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">patient_id → patients</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">caregiver_user_id → users</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">status, relation</TD></TR>
+    </TABLE>>];
+    consents [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#EC7FA4" COLSPAN="2"><FONT COLOR="white"><B>consents</B> 열람 동의</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">caregiver_link_id</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">scope, status</TD></TR>
+    </TABLE>>];
+  }
+
+  subgraph cluster_visit {
+    label="방문 · 기록"; style="rounded,filled"; fillcolor="#FFF3E8"; color="#E8B88A"; fontcolor="#7A4A2E"; fontsize=18; penwidth=2;
+    visits [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#EF6C00" COLSPAN="2"><FONT COLOR="white"><B>visits</B> 병원 방문</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">patient_id → patients</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">hospital_name, department</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">visited_on, status, memo</TD></TR>
+    </TABLE>>];
+    visit_participants [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#F19A4C" COLSPAN="2"><FONT COLOR="white"><B>visit_participants</B> 동행자</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK/FK</B></TD><TD ALIGN="LEFT">visit_id → visits</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK/FK</B></TD><TD ALIGN="LEFT">user_id → users</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">participant_role</TD></TR>
+    </TABLE>>];
+    health_records [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#EF6C00" COLSPAN="2"><FONT COLOR="white"><B>health_records</B> 아이 메모·건강기록</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">patient_id → patients</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">author_user_id → users</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">visit_id → visits (null)</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">input_type, content</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">proxy_written, version</TD></TR>
+    </TABLE>>];
+  }
+
+  subgraph cluster_doc {
+    label="문서 업로드 · 분석"; style="rounded,filled"; fillcolor="#EEF6FF"; color="#9BBEE0"; fontcolor="#1F4E79"; fontsize=18; penwidth=2;
+    documents [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#1565C0" COLSPAN="2"><FONT COLOR="white"><B>documents</B> 의료문서</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">patient_id → patients</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">visit_id → visits</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">uploader_user_id → users</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">storage_key, file_name</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">document_type, status</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">idempotency_key (U), sha256</TD></TR>
+    </TABLE>>];
+    document_pages [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#1976D2" COLSPAN="2"><FONT COLOR="white"><B>document_pages</B> 페이지·OCR</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">document_id → documents</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">page_no (U), ocr_status</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">ocr_text, rendered_*</TD></TR>
+    </TABLE>>];
+    document_analyses [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#1976D2" COLSPAN="2"><FONT COLOR="white"><B>document_analyses</B> 문서 분석</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">document_id → documents</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">parser/model_version</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">status, confidence</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">retry_count, error_code</TD></TR>
+    </TABLE>>];
+    document_chunks [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#42A5F5" COLSPAN="2"><FONT COLOR="white"><B>document_chunks</B> 청크</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">analysis_id → document_analyses</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">page_id → document_pages</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">chunk_index (U), content</TD></TR>
+    </TABLE>>];
+    extracted_items [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#42A5F5" COLSPAN="2"><FONT COLOR="white"><B>extracted_items</B> 추출 항목</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">analysis_id → document_analyses</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">page_id → document_pages</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">item_type, normalized_*</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">unit, confidence, source_box</TD></TR>
+    </TABLE>>];
+  }
+
+  subgraph cluster_ai {
+    label="AI 설명 · 근거"; style="rounded,filled"; fillcolor="#F3EEFF"; color="#B9A2E3"; fontcolor="#4A2E7A"; fontsize=18; penwidth=2;
+    ai_runs [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#6A1B9A" COLSPAN="2"><FONT COLOR="white"><B>ai_runs</B> AI 작업</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">analysis_id → document_analyses</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">visit_id → visits</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">message_id, run_type</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">model_name, prompt_version</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">status, progress, tokens</TD></TR>
+    </TABLE>>];
+    ai_explanations [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#6A1B9A" COLSPAN="2"><FONT COLOR="white"><B>ai_explanations</B> 쉬운 설명</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">document_id → documents</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">ai_run_id → ai_runs</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">version (U), title, content</TD></TR>
+    </TABLE>>];
+    explanation_sections [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#8E44C8" COLSPAN="2"><FONT COLOR="white"><B>explanation_sections</B> 섹션</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">explanation_id</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">section_type, order (U)</TD></TR>
+    </TABLE>>];
+    explanation_items [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#8E44C8" COLSPAN="2"><FONT COLOR="white"><B>explanation_items</B> 설명 항목</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">section_id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">extracted_item_id</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">label, display_value, unit</TD></TR>
+    </TABLE>>];
+    ai_claims [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#9C27B0" COLSPAN="2"><FONT COLOR="white"><B>ai_claims</B> 주장 검증</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">ai_run_id → ai_runs</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">claim_index (U), claim_text</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">validation_status, resolution</TD></TR>
+    </TABLE>>];
+    claim_evidence [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#9C27B0" COLSPAN="2"><FONT COLOR="white"><B>claim_evidence</B> 근거</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">claim_id → ai_claims</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">chunk_id → document_chunks</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">extracted_item_id</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">relation_type, support_score</TD></TR>
+    </TABLE>>];
+    explanation_citations [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#9C27B0" COLSPAN="2"><FONT COLOR="white"><B>explanation_citations</B> 인용</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">explanation_id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">claim_id, explanation_item_id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">page_id, chunk_id</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">quoted_text, anchor_id</TD></TR>
+    </TABLE>>];
+  }
+
+  subgraph cluster_chat {
+    label="AI 채팅"; style="rounded,filled"; fillcolor="#EAF7F0"; color="#8FCBAA"; fontcolor="#1F5E40"; fontsize=18; penwidth=2;
+    chat_sessions [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#2E7D32" COLSPAN="2"><FONT COLOR="white"><B>chat_sessions</B> 채팅방</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">patient_id → patients</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">started_by_user_id → users</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">active_visit_id → visits</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">title</TD></TR>
+    </TABLE>>];
+    chat_messages [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#2E7D32" COLSPAN="2"><FONT COLOR="white"><B>chat_messages</B> 메시지</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">session_id → chat_sessions</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">result_document_id</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">role, content, intent</TD></TR>
+    </TABLE>>];
+    ai_result_documents [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#43A047" COLSPAN="2"><FONT COLOR="white"><B>ai_result_documents</B> AI 답변 문서</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">request_id (U)</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">patient_id → patients</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">requested_by_user_id → users</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">question, question_type</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">job_status, result_status</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">title, content, citation_json</TD></TR>
+    </TABLE>>];
+  }
+
+  subgraph cluster_action {
+    label="할 일 · 일정 · 알림"; style="rounded,filled"; fillcolor="#FFF8E1"; color="#E3C77A"; fontcolor="#7A5E1F"; fontsize=18; penwidth=2;
+    action_items [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#F9A825" COLSPAN="2"><FONT COLOR="white"><B>action_items</B> 할 일 후보</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">visit_id → visits</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">document_id → documents</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">approved_by_user_id → users</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">type, title, due_at</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">approval_status</TD></TR>
+    </TABLE>>];
+    schedules [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#F9A825" COLSPAN="2"><FONT COLOR="white"><B>schedules</B> 일정</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">patient_id → patients</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">action_item_id → action_items</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">schedule_type, starts_at</TD></TR>
+    </TABLE>>];
+    notifications [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#FBC02D" COLSPAN="2"><FONT COLOR="white"><B>notifications</B> 발송 알림</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">schedule_id → schedules</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">recipient_user_id → users</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">channel, status, sent_at</TD></TR>
+    </TABLE>>];
+    system_notifications [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#FBC02D" COLSPAN="2"><FONT COLOR="white"><B>system_notifications</B> 앱 내 알림</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">recipient_user_id → users</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">type, message, path, read_at</TD></TR>
+    </TABLE>>];
+  }
+
+  subgraph cluster_infra {
+    label="검색 · 감사"; style="rounded,filled"; fillcolor="#F2F4F5"; color="#B0BEC5"; fontcolor="#37474F"; fontsize=18; penwidth=2;
+    retrieval_results [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#546E7A" COLSPAN="2"><FONT COLOR="white"><B>retrieval_results</B> 검색 결과</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">ai_run_id → ai_runs</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">chunk_id → document_chunks</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">rank_no, similarity_score</TD></TR>
+    </TABLE>>];
+    embeddings [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#546E7A" COLSPAN="2"><FONT COLOR="white"><B>embeddings</B> 벡터 (pgvector)</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">patient_id → patients</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">visit_id → visits</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">source_type, source_id</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">embedding vector(768)</TD></TR>
+    </TABLE>>];
+    audit_logs [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" BGCOLOR="white">
+      <TR><TD BGCOLOR="#78909C" COLSPAN="2"><FONT COLOR="white"><B>audit_logs</B> 감사 로그</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><B>PK</B></TD><TD ALIGN="LEFT">id</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">actor_user_id → users</TD></TR>
+      <TR><TD ALIGN="LEFT"><B>FK</B></TD><TD ALIGN="LEFT">patient_id → patients</TD></TR>
+      <TR><TD ALIGN="LEFT"></TD><TD ALIGN="LEFT">action, resource_type, result</TD></TR>
+    </TABLE>>];
+  }
+
+  // ---------- relationships ----------
+  users -> patients [label="1:1"];
+  users -> caregiver_links [label="1:N"];
+  patients -> caregiver_links [label="1:N"];
+  caregiver_links -> consents [label="1:N"];
+
+  patients -> visits [label="1:N"];
+  visits -> visit_participants [label="1:N"];
+  users -> visit_participants [label="1:N"];
+  patients -> health_records [label="1:N"];
+  users -> health_records [label="작성자 1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  visits -> health_records [label="0..1:N"];
+
+  patients -> documents [label="1:N"];
+  visits -> documents [label="1:N"];
+  users -> documents [label="업로더 1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  documents -> document_pages [label="1:N"];
+  documents -> document_analyses [label="1:N"];
+  document_analyses -> document_chunks [label="1:N"];
+  document_pages -> document_chunks [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  document_analyses -> extracted_items [label="1:N"];
+  document_pages -> extracted_items [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+
+  document_analyses -> ai_runs [label="0..1:N"];
+  visits -> ai_runs [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  documents -> ai_explanations [label="1:N"];
+  ai_runs -> ai_explanations [label="0..1:N"];
+  ai_explanations -> explanation_sections [label="1:N"];
+  explanation_sections -> explanation_items [label="1:N"];
+  extracted_items -> explanation_items [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  ai_runs -> ai_claims [label="1:N"];
+  ai_claims -> claim_evidence [label="1:N"];
+  document_chunks -> claim_evidence [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  extracted_items -> claim_evidence [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  ai_explanations -> explanation_citations [label="1:N"];
+  ai_claims -> explanation_citations [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  explanation_items -> explanation_citations [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  document_pages -> explanation_citations [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  document_chunks -> explanation_citations [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+
+  visits -> action_items [label="1:N"];
+  documents -> action_items [label="1:N"];
+  users -> action_items [label="승인자 0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  action_items -> schedules [label="1:N"];
+  patients -> schedules [label="1:N"];
+  schedules -> notifications [label="1:N"];
+  users -> notifications [label="수신자 1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  users -> system_notifications [label="수신자 1:N"];
+
+  patients -> chat_sessions [label="1:N"];
+  users -> chat_sessions [label="개설자 1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  visits -> chat_sessions [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  chat_sessions -> chat_messages [label="1:N"];
+  ai_result_documents -> chat_messages [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  patients -> ai_result_documents [label="1:N"];
+  users -> ai_result_documents [label="요청자 1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+
+  ai_runs -> retrieval_results [label="1:N"];
+  document_chunks -> retrieval_results [label="1:N"];
+  patients -> embeddings [label="1:N"];
+  visits -> embeddings [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  users -> audit_logs [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+  patients -> audit_logs [label="0..1:N", style=dashed, constraint=false, color="#E49CB6", fontcolor="#B07A8C"];
+}
