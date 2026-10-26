@@ -131,37 +131,18 @@
    <img width="4348" height="3627" alt="dodam_erd" src="https://github.com/user-attachments/assets/5ec8d122-fa74-4fdd-8c5c-96c117dbba52" />
 
 
-- ### 📚 요구사항 명세서
-  **[요구사항 명세서 링크를 입력해 주세요]**
-  <details><summary>요구사항 명세서 이미지</summary>
+- ### 📚 요구사항 명세서 및 기능명세서
+  **[요구사항명세서 및 기능명세서](https://docs.google.com/spreadsheets/d/1YeFHRiT_A57RUV32-Rc_4s0yvuSbJmtxSJgWke0_PMU/edit?usp=sharing)**
 
-  <!-- 요구사항 명세서 이미지를 여기에 추가해 주세요. -->
 
-  </details>
-
-- ### 🧩 기능 명세서
-  **[기능 명세서 링크를 입력해 주세요]**
-  <details><summary>기능 명세서 이미지</summary>
-
-  <!-- 기능 명세서 이미지를 여기에 추가해 주세요. -->
-
-  </details>
 
 - ### 🖼️ 화면 설계서
-  **[화면 설계서(Figma) 링크를 입력해 주세요]**
-  <details><summary>화면 설계서 이미지</summary>
-
-  <!-- 화면 설계서 이미지를 여기에 추가해 주세요. -->
-
-  </details>
+  **[화면설계서](https://claude.ai/artifact/B6hguHWy25YhYNA9KjNBhQ#page-dcb81aee8d83)**
+  
 
 - ### 📖 API 명세서
-  **[API 명세서 링크를 입력해 주세요]**
-  <details><summary>API 명세서 이미지</summary>
+  **[API 명세서](https://dodam-api-docs.yoohanse.chatgpt.site/)**
 
-  <!-- API 명세서 이미지를 여기에 추가해 주세요. -->
-
-  </details>
 
 ---
 
