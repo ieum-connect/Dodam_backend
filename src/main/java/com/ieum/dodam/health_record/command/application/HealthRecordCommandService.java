@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import java.time.Instant;
 
 /** 건강기록 작성·수정·삭제의 권한과 데이터 규칙을 처리한다. */
 @Service
@@ -40,6 +41,11 @@ public class HealthRecordCommandService {
 
     /** 대상 개인과 방문의 권한을 검사한 후 본문을 저장한다. */
     public HealthRecord create(User actor, UUID patientId, String body, UUID visitId) {
+        return create(actor, patientId, body, visitId, null);
+    }
+
+    public HealthRecord create(
+            User actor, UUID patientId, String body, UUID visitId, Instant recordedAt) {
         UUID target = access.requirePatient(actor, patientId);
         validateBody(body);
         validateVisit(target, visitId);
@@ -50,7 +56,8 @@ public class HealthRecordCommandService {
                                 actor.getId(),
                                 visitId,
                                 body,
-                                actor.getRole() == UserRole.CAREGIVER));
+                                actor.getRole() == UserRole.CAREGIVER,
+                                recordedAt));
         if (actor.getRole() == UserRole.CAREGIVER) {
             events.publishEvent(
                     new SystemActivityEvent(
@@ -65,18 +72,23 @@ public class HealthRecordCommandService {
 
     /** 본인 프로필의 개인 또는 ACTIVE 보호자가 기록을 수정한다. */
     public HealthRecord update(User actor, UUID id, String body, UUID visitId) {
-        return update(actor, id, null, body, visitId);
+        return update(actor, id, null, body, visitId, null);
     }
 
     /** 대상 개인을 바꾸는 요청은 거절하고 허용된 사용자가 본문을 수정한다. */
     public HealthRecord update(User actor, UUID id, UUID patientId, String body, UUID visitId) {
+        return update(actor, id, patientId, body, visitId, null);
+    }
+
+    public HealthRecord update(
+            User actor, UUID id, UUID patientId, String body, UUID visitId, Instant recordedAt) {
         HealthRecord record = requireWritable(actor, id);
         if (patientId != null && !patientId.equals(record.getPatientId())) {
             throw new BusinessException(GlobalErrorCode.INVALID_REQUEST);
         }
         validateBody(body);
         validateVisit(record.getPatientId(), visitId);
-        record.update(body, visitId);
+        record.update(body, visitId, recordedAt);
         return record;
     }
 

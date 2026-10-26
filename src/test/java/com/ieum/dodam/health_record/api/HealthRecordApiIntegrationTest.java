@@ -92,6 +92,32 @@ class HealthRecordApiIntegrationTest {
     }
 
     @Test
+    void chosenRecordedAtIsStoredAndCanBeUpdated() throws Exception {
+        var created =
+                mvc.perform(
+                                post("/api/health-records")
+                                        .header("Authorization", "Bearer " + token)
+                                        .contentType("application/json")
+                                        .content(
+                                                "{\"body\":\"기록 시간 테스트\","
+                                                        + "\"recordedAt\":\"2026-10-24T00:30:00Z\"}"))
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.recordedAt").value("2026-10-24T00:30:00Z"))
+                        .andReturn();
+        String id = json.readTree(created.getResponse().getContentAsString()).get("recordId").asText();
+
+        mvc.perform(
+                        put("/api/health-records/" + id)
+                                .header("Authorization", "Bearer " + token)
+                                .contentType("application/json")
+                                .content(
+                                        "{\"body\":\"시간 수정\","
+                                                + "\"recordedAt\":\"2026-10-24T03:45:00Z\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recordedAt").value("2026-10-24T03:45:00Z"));
+    }
+
+    @Test
     void unauthenticatedAndInvalidInputsAreRejected() throws Exception {
         mvc.perform(get("/api/health-records")).andExpect(status().isUnauthorized());
         mvc.perform(

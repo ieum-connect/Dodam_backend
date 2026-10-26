@@ -57,6 +57,12 @@ public class HealthRecord {
     /** 텍스트 건강기록을 생성하고 서버 시각을 기록한다. */
     public static HealthRecord create(
             UUID patientId, UUID authorId, UUID visitId, String body, boolean proxy) {
+        return create(patientId, authorId, visitId, body, proxy, null);
+    }
+
+    /** 사용자가 지정한 기록 시각을 보존하고, 없으면 서버 시각을 사용한다. */
+    public static HealthRecord create(
+            UUID patientId, UUID authorId, UUID visitId, String body, boolean proxy, Instant recordedAt) {
         HealthRecord record = new HealthRecord();
         record.id = UUID.randomUUID();
         record.patientId = patientId;
@@ -65,14 +71,22 @@ public class HealthRecord {
         record.content = body;
         record.inputType = "TEXT";
         record.proxyWritten = proxy;
-        record.recordedAt = record.createdAt = record.updatedAt = Instant.now();
+        Instant now = Instant.now();
+        record.recordedAt = recordedAt == null ? now : recordedAt;
+        record.createdAt = record.updatedAt = now;
         return record;
     }
 
     /** 본문과 연결 방문을 수정한다. */
     public void update(String body, UUID visitId) {
+        update(body, visitId, null);
+    }
+
+    /** 본문과 연결 방문, 기록 시각을 수정한다. */
+    public void update(String body, UUID visitId, Instant recordedAt) {
         this.content = body;
         this.visitId = visitId;
+        if (recordedAt != null) this.recordedAt = recordedAt;
         this.updatedAt = Instant.now();
     }
 
