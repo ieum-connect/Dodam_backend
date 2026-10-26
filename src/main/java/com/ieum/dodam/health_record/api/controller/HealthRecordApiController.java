@@ -71,7 +71,13 @@ public class HealthRecordApiController {
             @AuthenticationPrincipal OAuth2User principal,
             @Valid @RequestBody HealthRecordWriteRequestDto request) {
         User actor = actor(principal);
-        var record = commands.create(actor, request.patientId(), request.body(), request.visitId());
+        var record =
+                commands.create(
+                        actor,
+                        request.patientId(),
+                        request.body(),
+                        request.visitId(),
+                        request.recordedAt());
         return mapper.toResponse(HealthRecordQueryService.view(record, actor.getName()));
     }
 
@@ -84,7 +90,12 @@ public class HealthRecordApiController {
         User actor = actor(principal);
         var record =
                 commands.update(
-                        actor, recordId, request.patientId(), request.body(), request.visitId());
+                        actor,
+                        recordId,
+                        request.patientId(),
+                        request.body(),
+                        request.visitId(),
+                        request.recordedAt());
         return mapper.toResponse(queries.detail(actor, record.getId()));
     }
 
