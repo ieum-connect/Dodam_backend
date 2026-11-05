@@ -1,11 +1,12 @@
 package com.ieum.dodam.schedule.command.application;
 
-import com.ieum.dodam.action_item.domain.*;
+import com.ieum.dodam.action_item.domain.ActionItemApprovalStatus;
 import com.ieum.dodam.action_item.domain.entity.ActionItem;
 import com.ieum.dodam.action_item.domain.repository.ActionItemRepository;
 import com.ieum.dodam.global.exception.*;
 import com.ieum.dodam.medical_document.domain.repository.MedicalDocumentRepository;
 import com.ieum.dodam.schedule.domain.Schedule;
+import com.ieum.dodam.schedule.domain.ScheduleType;
 import com.ieum.dodam.schedule.domain.repository.ScheduleRepository;
 import com.ieum.dodam.user.domain.User;
 import com.ieum.dodam.visit.domain.VisitAccessPolicy;
@@ -15,7 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.*;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -52,14 +54,13 @@ public class CalendarService {
     }
 
     public Schedule create(
-            User actor, UUID patientId, String title, String type, Instant startsAt) {
+            User actor, UUID patientId, String title, ScheduleType type, Instant startsAt) {
         access.requirePatient(actor, patientId);
         if (startsAt == null
                 || title == null
                 || title.isBlank()
                 || title.length() > 200
-                || !Set.of("MEDICATION", "REVISIT", "TEST", "PERSONAL", "OTHER").contains(type))
-            throw invalid();
+                || type == null) throw invalid();
         return schedules.save(Schedule.create(patientId, null, type, title.strip(), startsAt));
     }
 
@@ -69,26 +70,30 @@ public class CalendarService {
         access.requirePatient(actor, visit.getPatientId());
         var document =
                 documents.findById(item.getDocumentId()).orElseThrow(CalendarService::invalid);
-        if (document.getDeletedAt() != null
-                || visit.getDeletedAt() != null
-                || !document.getVisitId().equals(visit.getId())
+        if (!document.getVisitId().equals(visit.getId())
                 || !document.getPatientId().equals(visit.getPatientId())) throw conflict();
         if (approve && item.getApprovalStatus() == ActionItemApprovalStatus.APPROVED)
             return schedules.findByActionItemId(id).orElseThrow(CalendarService::conflict);
         if (!approve && item.getApprovalStatus() == ActionItemApprovalStatus.REJECTED) return null;
-        if (item.getApprovalStatus() != ActionItemApprovalStatus.PENDING) throw conflict();
-        Schedule schedule = null;
-        if (approve) {
-            Instant date = startsAt != null ? startsAt : item.getDueAt();
-            if (date == null) throw invalid();
-            String type =
-                    item.getType() == ActionItemType.CAUTION ? "OTHER" : item.getType().name();
-            schedule =
-                    schedules.save(
-                            Schedule.create(visit.getPatientId(), id, type, item.getTitle(), date));
+        if (item.getApprovalStatus() != ActionItemApprovalStatus.PENDING
+                || document.getDeletedAt() != null
+                || visit.getDeletedAt() != null) throw conflict();
+        if (!approve) {
+            item.reject();
+            return null;
         }
-        item.decide(approve, actor.getId());
-        return schedule;
+        Instant date = startsAt != null ? startsAt : item.getDueAt();
+        if (date == null) throw invalid();
+        ScheduleType type =
+                switch (item.getType()) {
+                    case MEDICATION -> ScheduleType.MEDICATION;
+                    case REVISIT -> ScheduleType.REVISIT;
+                    case TEST -> ScheduleType.TEST;
+                    case CAUTION, OTHER -> ScheduleType.OTHER;
+                };
+        item.approve(actor.getId(), Instant.now());
+        return schedules.save(
+                Schedule.create(visit.getPatientId(), id, type, item.getTitle(), date));
     }
 
     private static BusinessException invalid() {

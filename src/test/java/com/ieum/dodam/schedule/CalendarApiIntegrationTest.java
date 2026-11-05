@@ -110,6 +110,15 @@ class CalendarApiIntegrationTest {
                     .andExpect(jsonPath("$.actionItemId").value(candidate.getId().toString()));
         assertThat(schedules.findAll()).hasSize(1);
         mvc.perform(
+                        get("/api/action-items")
+                                .header("Authorization", "Bearer " + token)
+                                .param("patientId", patientId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].approvalStatus").value("APPROVED"))
+                .andExpect(jsonPath("$[0].documentId").value(document.getId().toString()))
+                .andExpect(jsonPath("$[0].approvedByUserId").doesNotHaveJsonPath())
+                .andExpect(jsonPath("$[0].cancelReason").doesNotHaveJsonPath());
+        mvc.perform(
                         get("/api/schedules")
                                 .header("Authorization", "Bearer " + token)
                                 .param("patientId", patientId.toString())
@@ -120,11 +129,41 @@ class CalendarApiIntegrationTest {
     }
 
     @Test
+    void repeatedApprovalReturnsOriginalScheduleAfterSourceDeletion() throws Exception {
+        String path = "/api/action-items/" + candidate.getId() + "/approve";
+        mvc.perform(
+                        post(path)
+                                .header("Authorization", "Bearer " + token)
+                                .contentType("application/json")
+                                .content("{\"startsAt\":\"2026-12-03T00:00:00Z\"}"))
+                .andExpect(status().isOk());
+        var original = schedules.findByActionItemId(candidate.getId()).orElseThrow();
+        mvc.perform(
+                        delete("/api/documents/" + document.getId())
+                                .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        em.flush();
+        em.clear();
+
+        mvc.perform(post(path).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(original.getId().toString()));
+        assertThat(schedules.findAll()).hasSize(1);
+    }
+
+    @Test
     void rejectedCandidateDoesNotCreateSchedule() throws Exception {
         String path = "/api/action-items/" + candidate.getId();
-        for (int i = 0; i < 2; i++)
-            mvc.perform(post(path + "/reject").header("Authorization", "Bearer " + token))
-                    .andExpect(status().isNoContent());
+        mvc.perform(post(path + "/reject").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        mvc.perform(
+                        delete("/api/documents/" + document.getId())
+                                .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        em.flush();
+        em.clear();
+        mvc.perform(post(path + "/reject").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
         mvc.perform(post(path + "/approve").header("Authorization", "Bearer " + token))
                 .andExpect(status().isConflict());
         assertThat(schedules.findAll()).isEmpty();
@@ -203,12 +242,21 @@ class CalendarApiIntegrationTest {
                         + patientId
                         + "\",\"title\":\"상담"
                         + " 준비\",\"scheduleType\":\"PERSONAL\",\"startsAt\":\"2026-12-01T00:00:00Z\"}";
+        for (String invalidType : new String[] {"\"UNKNOWN\"", "0"}) {
+            mvc.perform(
+                            post("/api/schedules")
+                                    .header("Authorization", "Bearer " + token)
+                                    .contentType("application/json")
+                                    .content(body.replace("\"PERSONAL\"", invalidType)))
+                    .andExpect(status().isBadRequest());
+        }
         mvc.perform(
                         post("/api/schedules")
                                 .header("Authorization", "Bearer " + token)
                                 .contentType("application/json")
                                 .content(body))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.scheduleType").value("PERSONAL"))
                 .andExpect(jsonPath("$.actionItemId").doesNotExist());
         mvc.perform(
                         get("/api/schedules")

@@ -20,8 +20,9 @@ public class Schedule {
     @Column(name = "action_item_id")
     private UUID actionItemId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "schedule_type", nullable = false, length = 20)
-    private String scheduleType;
+    private ScheduleType scheduleType;
 
     @Column(nullable = false, length = 200)
     private String title;
@@ -42,7 +43,7 @@ public class Schedule {
     private Instant updatedAt;
 
     public static Schedule create(
-            UUID patientId, UUID actionItemId, String type, String title, Instant startsAt) {
+            UUID patientId, UUID actionItemId, ScheduleType type, String title, Instant startsAt) {
         var row = new Schedule();
         row.id = UUID.randomUUID();
         row.patientId = patientId;

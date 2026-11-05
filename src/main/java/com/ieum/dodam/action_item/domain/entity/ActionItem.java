@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 /** 진료 문서에서 나온 할 일 후보와 승인 상태를 관리하는 엔티티입니다. */
@@ -61,10 +62,25 @@ public class ActionItem {
     @Column(name = "cancel_reason", length = 100)
     private String cancelReason;
 
-    public void decide(boolean approved, UUID actorId) {
-        approvalStatus =
-                approved ? ActionItemApprovalStatus.APPROVED : ActionItemApprovalStatus.REJECTED;
-        approvedByUserId = approved ? actorId : null;
-        approvedAt = approved ? Instant.now() : null;
+    public void approve(UUID actorId, Instant decidedAt) {
+        requirePending();
+        Objects.requireNonNull(actorId);
+        Objects.requireNonNull(decidedAt);
+        approvedByUserId = actorId;
+        approvedAt = decidedAt;
+        approvalStatus = ActionItemApprovalStatus.APPROVED;
+    }
+
+    public void reject() {
+        requirePending();
+        approvedByUserId = null;
+        approvedAt = null;
+        approvalStatus = ActionItemApprovalStatus.REJECTED;
+    }
+
+    private void requirePending() {
+        if (approvalStatus != ActionItemApprovalStatus.PENDING) {
+            throw new IllegalStateException("Only pending action items can be decided");
+        }
     }
 }

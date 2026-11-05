@@ -1,8 +1,11 @@
 package com.ieum.dodam.schedule.api.controller;
 
+import com.ieum.dodam.action_item.domain.ActionItemApprovalStatus;
+import com.ieum.dodam.action_item.domain.ActionItemType;
 import com.ieum.dodam.action_item.domain.entity.ActionItem;
 import com.ieum.dodam.schedule.command.application.CalendarService;
 import com.ieum.dodam.schedule.domain.Schedule;
+import com.ieum.dodam.schedule.domain.ScheduleType;
 import com.ieum.dodam.user.domain.User;
 import com.ieum.dodam.user.query.application.UserQueryService;
 
@@ -30,15 +33,37 @@ public class CalendarApiController {
     public record Write(
             @NotNull UUID patientId,
             @NotBlank @Size(max = 200) String title,
-            @NotBlank String scheduleType,
+            @NotNull ScheduleType scheduleType,
             @NotNull Instant startsAt) {}
 
     public record Decision(Instant startsAt) {}
 
+    public record Candidate(
+            UUID id,
+            UUID documentId,
+            ActionItemType type,
+            String title,
+            String description,
+            Instant dueAt,
+            ActionItemApprovalStatus approvalStatus) {
+        private static Candidate from(ActionItem item) {
+            return new Candidate(
+                    item.getId(),
+                    item.getDocumentId(),
+                    item.getType(),
+                    item.getTitle(),
+                    item.getDescription(),
+                    item.getDueAt(),
+                    item.getApprovalStatus());
+        }
+    }
+
     @GetMapping("/action-items")
-    public List<ActionItem> candidates(
+    public List<Candidate> candidates(
             @AuthenticationPrincipal OAuth2User principal, @RequestParam UUID patientId) {
-        return calendar.candidates(actor(principal), patientId);
+        return calendar.candidates(actor(principal), patientId).stream()
+                .map(Candidate::from)
+                .toList();
     }
 
     @PostMapping("/action-items/{id}/approve")
