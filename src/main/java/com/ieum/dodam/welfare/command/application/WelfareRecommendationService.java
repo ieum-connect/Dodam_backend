@@ -7,6 +7,7 @@ import com.ieum.dodam.welfare.domain.entity.WelfareProgram;
 import com.ieum.dodam.welfare.domain.repository.ChildWelfareProfileRepository;
 import com.ieum.dodam.welfare.domain.repository.WelfareProgramRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.Period;
@@ -16,6 +17,7 @@ import java.util.UUID;
 @Service
 public class WelfareRecommendationService {
     private final PatientRepository patients; private final ChildWelfareProfileRepository profiles; private final WelfareProgramRepository programs; private final Clock clock;
+    @Autowired
     public WelfareRecommendationService(PatientRepository patients, ChildWelfareProfileRepository profiles, WelfareProgramRepository programs) { this(patients, profiles, programs, Clock.systemUTC()); }
     WelfareRecommendationService(PatientRepository p, ChildWelfareProfileRepository f, WelfareProgramRepository g, Clock c) { patients=p; profiles=f; programs=g; clock=c; }
     public RecommendationResult recommend(UUID patientId, boolean proactive) {
