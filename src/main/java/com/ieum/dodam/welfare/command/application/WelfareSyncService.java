@@ -8,6 +8,8 @@ import com.ieum.dodam.welfare.infrastructure.gov24.Gov24WelfareClient;
 import com.ieum.dodam.welfare.infrastructure.gov24.Gov24WelfareClientException;
 import com.ieum.dodam.welfare.infrastructure.gov24.dto.Gov24PageResponse;
 import com.ieum.dodam.welfare.infrastructure.gov24.dto.Gov24ServiceListItem;
+import com.ieum.dodam.welfare.infrastructure.gov24.dto.Gov24ServiceDetailItem;
+import com.ieum.dodam.welfare.infrastructure.gov24.dto.Gov24SupportConditionsItem;
 import com.ieum.dodam.welfare.domain.repository.WelfareSyncLogRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,18 +45,30 @@ public class WelfareSyncService {
 
     @Transactional
     public int synchronizeAll(int perPage) {
+        return synchronizeSince(perPage, null);
+    }
+
+    @Transactional
+    public int synchronizeSince(int perPage, String modifiedFrom) {
         int page = 1;
         int saved = 0;
         while (true) {
             Instant started = clock.instant();
-            Gov24PageResponse<Gov24ServiceListItem> response = client.serviceList(page, perPage, null);
+            Gov24PageResponse<Gov24ServiceListItem> response = client.serviceList(page, perPage, modifiedFrom);
             for (Gov24ServiceListItem item : response.data()) {
                 if (!isChildCandidate(item)) continue;
-                catalog.upsert(toSource(item));
-                saved++;
+                try {
+                    catalog.upsert(enrich(item));
+                    saved++;
+                } catch (Gov24WelfareClientException exception) {
+                    logs.save(WelfareSyncLog.failed(WelfareSyncLog.Endpoint.SERVICE_DETAIL,
+                            modifiedFrom == null ? WelfareSyncLog.SyncType.FULL : WelfareSyncLog.SyncType.INCREMENTAL,
+                            exception.getReason().name(), "서비스 상세 동기화 실패", started, clock.instant()));
+                }
             }
             logs.save(WelfareSyncLog.completed(WelfareSyncLog.Endpoint.SERVICE_LIST,
-                    WelfareSyncLog.SyncType.FULL, page, response.currentCount(), started, clock.instant()));
+                    modifiedFrom == null ? WelfareSyncLog.SyncType.FULL : WelfareSyncLog.SyncType.INCREMENTAL,
+                    page, response.currentCount(), started, clock.instant()));
             if (response.data().isEmpty() || page * (long) perPage >= response.totalCount()) break;
             page++;
         }
@@ -90,6 +104,30 @@ public class WelfareSyncService {
                 item.agencyCode(), item.agencyName(), item.agencyType(), item.departmentName(), item.receptionAgency(),
                 item.contact(), item.serviceCategory(), item.userCategory(), item.viewCount(), null, parseInstant(item.modifiedAt()),
                 isChildCandidate(item), raw, objectMapper.createObjectNode(), objectMapper.createObjectNode());
+    }
+
+    private WelfareProgramSource enrich(Gov24ServiceListItem item) {
+        Gov24PageResponse<Gov24ServiceDetailItem> detailResponse = client.serviceDetail(item.serviceId());
+        Gov24ServiceDetailItem detail = detailResponse.data().stream().findFirst().orElse(null);
+        Gov24PageResponse<Gov24SupportConditionsItem> conditionResponse = client.supportConditions(1, 1, item.serviceId());
+        JsonNode detailJson = detail == null ? objectMapper.createObjectNode() : objectMapper.valueToTree(detail);
+        JsonNode conditionJson = conditionResponse.data().isEmpty()
+                ? objectMapper.createObjectNode()
+                : objectMapper.valueToTree(conditionResponse.data().get(0));
+        WelfareProgramSource base = toSource(item);
+        if (detail == null) return new WelfareProgramSource(base.externalServiceId(), base.name(), base.supportType(),
+                base.purposeSummary(), null, base.targetText(), base.selectionCriteriaText(), base.benefitText(),
+                base.applicationMethod(), base.applicationDeadline(), base.applicationDeadlineType(), null, null, null,
+                null, base.detailUrl(), base.agencyCode(), base.agencyName(), base.agencyType(), base.departmentName(),
+                base.receptionAgency(), base.contact(), base.serviceCategory(), base.userCategory(), base.viewCount(),
+                base.registeredAtSource(), base.modifiedAtSource(), true, base.rawListJson(), detailJson, conditionJson);
+        return new WelfareProgramSource(base.externalServiceId(), detail.serviceName(), detail.supportType(), base.purposeSummary(),
+                detail.purpose(), detail.target(), detail.selectionCriteria(), detail.benefit(), detail.applicationMethod(),
+                detail.applicationDeadline(), detail.deadlineType(), detail.requiredDocuments(), detail.officialCheckDocuments(),
+                detail.identityCheckDocuments(), detail.onlineApplicationUrl(), base.detailUrl(), base.agencyCode(),
+                detail.agencyName(), base.agencyType(), base.departmentName(), detail.receptionAgency(), detail.contact(),
+                base.serviceCategory(), base.userCategory(), base.viewCount(), base.registeredAtSource(), parseInstant(detail.modifiedAt()),
+                true, base.rawListJson(), detailJson, conditionJson);
     }
 
     private Instant parseInstant(String value) {
