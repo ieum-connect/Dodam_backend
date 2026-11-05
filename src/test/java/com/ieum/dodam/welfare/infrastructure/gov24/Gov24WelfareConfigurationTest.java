@@ -2,6 +2,7 @@ package com.ieum.dodam.welfare.infrastructure.gov24;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.web.client.RestClient;
 
 import java.net.URI;
 import java.time.Duration;
@@ -10,7 +11,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class Gov24WelfareConfigurationTest {
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
-            .withUserConfiguration(Gov24WelfareConfiguration.class);
+            .withUserConfiguration(Gov24WelfareConfiguration.class)
+            .withBean(RestClient.Builder.class, RestClient::builder);
 
     @Test
     void bindsGov24Settings() {
