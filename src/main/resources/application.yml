@@ -66,6 +66,14 @@ logging:
 dodam:
   demo-login: ${DEMO_LOGIN:false}
   frontend-origin: ${FRONTEND_ORIGIN:http://localhost:4173}
+  welfare:
+    gov24:
+      base-url: ${GOV24_WELFARE_BASE_URL:https://api.odcloud.kr/api}
+      service-key: ${GOV24_WELFARE_SERVICE_KEY:}
+      page-size: ${GOV24_WELFARE_PAGE_SIZE:100}
+      connect-timeout: ${GOV24_WELFARE_CONNECT_TIMEOUT:2s}
+      read-timeout: ${GOV24_WELFARE_READ_TIMEOUT:10s}
+      sync-enabled: ${GOV24_WELFARE_SYNC_ENABLED:false}
   document:
     upload:
       max-bytes: 20971520
