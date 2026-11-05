@@ -19,7 +19,12 @@ import java.util.Locale;
 
 @Service
 public class WelfareSyncService {
-    private static final List<String> CHILD_KEYWORDS = List.of("출산", "영아", "유아", "아동", "양육", "보육", "돌봄", "교육");
+    private static final List<String> STRONG_CHILD_KEYWORDS = List.of(
+            "영아", "유아", "영유아", "아동수당", "부모급여", "보육료", "어린이집", "유치원",
+            "가정양육", "아이돌봄", "출산", "임신", "아동복지", "아동양육");
+    private static final List<String> SUPPORT_KEYWORDS = List.of("양육", "보육", "돌봄", "교육", "자녀", "아동");
+    private static final List<String> EXCLUSION_KEYWORDS = List.of(
+            "성폭력", "범죄피해", "피해자", "국선변호사", "진술조력", "해양사고", "어선", "옵서버");
     private final Gov24WelfareClient client;
     private final WelfareCatalogService catalog;
     private final WelfareSyncLogRepository logs;
@@ -57,9 +62,24 @@ public class WelfareSyncService {
     }
 
     private boolean isChildCandidate(Gov24ServiceListItem item) {
-        String text = String.join(" ", item.serviceName(), item.purposeSummary(), item.target(), item.serviceCategory())
-                .toLowerCase(Locale.ROOT);
-        return CHILD_KEYWORDS.stream().anyMatch(text::contains);
+        String name = safe(item.serviceName());
+        String purpose = safe(item.purposeSummary());
+        String target = safe(item.target());
+        String category = safe(item.serviceCategory());
+        String all = String.join(" ", name, purpose, target, category).toLowerCase(Locale.ROOT);
+        if (EXCLUSION_KEYWORDS.stream().anyMatch(all::contains)) return false;
+
+        int score = 0;
+        score += STRONG_CHILD_KEYWORDS.stream().filter(name::contains).mapToInt(value -> 3).sum();
+        score += STRONG_CHILD_KEYWORDS.stream().filter(target::contains).mapToInt(value -> 3).sum();
+        score += STRONG_CHILD_KEYWORDS.stream().filter(purpose::contains).mapToInt(value -> 2).sum();
+        score += SUPPORT_KEYWORDS.stream().filter(category::contains).mapToInt(value -> 1).sum();
+        score += SUPPORT_KEYWORDS.stream().filter(name::contains).mapToInt(value -> 1).sum();
+        return score >= 3;
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value.toLowerCase(Locale.ROOT);
     }
 
     private WelfareProgramSource toSource(Gov24ServiceListItem item) {
