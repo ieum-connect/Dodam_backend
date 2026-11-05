@@ -2,12 +2,14 @@ package com.ieum.dodam.action_item.domain.entity;
 
 import com.ieum.dodam.action_item.domain.ActionItemApprovalStatus;
 import com.ieum.dodam.action_item.domain.ActionItemType;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,8 +24,7 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ActionItem {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "visit_id", nullable = false)
     private UUID visitId;
@@ -60,4 +61,10 @@ public class ActionItem {
     @Column(name = "cancel_reason", length = 100)
     private String cancelReason;
 
+    public void decide(boolean approved, UUID actorId) {
+        approvalStatus =
+                approved ? ActionItemApprovalStatus.APPROVED : ActionItemApprovalStatus.REJECTED;
+        approvedByUserId = approved ? actorId : null;
+        approvedAt = approved ? Instant.now() : null;
+    }
 }
