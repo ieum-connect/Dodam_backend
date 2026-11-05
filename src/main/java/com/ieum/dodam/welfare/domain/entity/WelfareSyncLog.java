@@ -27,4 +27,32 @@ public class WelfareSyncLog {
     @Column(name="error_message",columnDefinition="TEXT") private String errorMessage;
     @Column(name="started_at",nullable=false) private Instant startedAt;
     @Column(name="finished_at") private Instant finishedAt;
+
+    public static WelfareSyncLog completed(Endpoint endpoint, SyncType syncType, long page,
+                                           long receivedCount, Instant startedAt, Instant finishedAt) {
+        WelfareSyncLog log = new WelfareSyncLog();
+        log.id = UUID.randomUUID();
+        log.endpoint = endpoint;
+        log.syncType = syncType;
+        log.status = Status.SUCCEEDED;
+        log.requestedPage = page;
+        log.receivedCount = receivedCount;
+        log.startedAt = startedAt;
+        log.finishedAt = finishedAt;
+        return log;
+    }
+
+    public static WelfareSyncLog failed(Endpoint endpoint, SyncType syncType, String errorCode,
+                                        String errorMessage, Instant startedAt, Instant finishedAt) {
+        WelfareSyncLog log = new WelfareSyncLog();
+        log.id = UUID.randomUUID();
+        log.endpoint = endpoint;
+        log.syncType = syncType;
+        log.status = Status.FAILED;
+        log.errorCode = errorCode;
+        log.errorMessage = errorMessage;
+        log.startedAt = startedAt;
+        log.finishedAt = finishedAt;
+        return log;
+    }
 }
