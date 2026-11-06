@@ -13,7 +13,6 @@ import com.ieum.dodam.welfare.infrastructure.gov24.dto.Gov24SupportConditionsIte
 import com.ieum.dodam.welfare.domain.repository.WelfareSyncLogRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -45,12 +44,10 @@ public class WelfareSyncService {
         this.client = client; this.catalog = catalog; this.logs = logs; this.objectMapper = objectMapper; this.clock = clock;
     }
 
-    @Transactional
     public int synchronizeAll(int perPage) {
         return synchronizeSince(perPage, null);
     }
 
-    @Transactional
     public int synchronizeSince(int perPage, String modifiedFrom) {
         int page = 1;
         int saved = 0;
