@@ -60,7 +60,9 @@ public class WelfareSyncService {
             for (Gov24ServiceListItem item : response.data()) {
                 if (!isChildCandidate(item)) continue;
                 try {
-                    catalog.upsert(enrich(item));
+                    // 목록 응답만으로 검색·추천에 필요한 핵심 필드가 모두 제공된다.
+                    // 전체 동기화 중 서비스별 상세/조건 API를 직렬 호출하지 않아 외부 호출량과 시간을 제한한다.
+                    catalog.upsert(toSource(item));
                     saved++;
                 } catch (Gov24WelfareClientException exception) {
                     logs.save(WelfareSyncLog.failed(WelfareSyncLog.Endpoint.SERVICE_DETAIL,
