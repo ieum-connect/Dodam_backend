@@ -12,6 +12,8 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withBadRequest;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 import static org.springframework.http.HttpMethod.GET;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 class HttpGov24WelfareClientTest {
     @Test
@@ -42,6 +44,21 @@ class HttpGov24WelfareClientTest {
         assertThatThrownBy(() -> client.serviceDetail("SVC-1"))
                 .isInstanceOf(Gov24WelfareClientException.class)
                 .extracting("reason").isEqualTo(Gov24WelfareClientException.Reason.REQUEST_REJECTED);
+        server.verify();
+    }
+
+    @Test
+    void filtersDetailByExactServiceIdUsingOdCloudConditionSyntax() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpGov24WelfareClient client = new HttpGov24WelfareClient(builder, "https://example.test/api", "secret");
+        server.expect(requestTo(org.hamcrest.Matchers.startsWith("https://example.test/api/gov24/v3/serviceDetail")))
+                .andExpect(request -> assertThat(URLDecoder.decode(request.getURI().getRawQuery(), StandardCharsets.UTF_8))
+                        .contains("cond[서비스ID::EQ]=SVC-77"))
+                .andRespond(withSuccess("{\"page\":1,\"perPage\":10,\"totalCount\":1,\"currentCount\":1,\"data\":[{\"서비스ID\":\"SVC-77\",\"서비스명\":\"아동 지원\"}]}", MediaType.APPLICATION_JSON));
+
+        assertThat(client.serviceDetail("SVC-77").data()).singleElement()
+                .satisfies(item -> assertThat(item.serviceId()).isEqualTo("SVC-77"));
         server.verify();
     }
 }

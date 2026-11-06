@@ -51,8 +51,8 @@ public class HttpGov24WelfareClient implements Gov24WelfareClient {
                 var builder = uri.path(path).queryParam("serviceKey", serviceKey).queryParam("returnType", "JSON");
                 if (page != null) builder.queryParam("page", page);
                 if (perPage != null) builder.queryParam("perPage", perPage);
-                if (modifiedFrom != null && !modifiedFrom.isBlank()) builder.queryParam("수정일시::GTE", modifiedFrom);
-                if (serviceId != null && !serviceId.isBlank()) builder.queryParam("서비스ID", serviceId);
+                if (modifiedFrom != null && !modifiedFrom.isBlank()) builder.queryParam("cond[수정일시::GTE]", modifiedFrom);
+                if (serviceId != null && !serviceId.isBlank()) builder.queryParam("cond[서비스ID::EQ]", serviceId);
                 return builder.build();
             }).retrieve().body(type);
         } catch (RestClientResponseException e) {

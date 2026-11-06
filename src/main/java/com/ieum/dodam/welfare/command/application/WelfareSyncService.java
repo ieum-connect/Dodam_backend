@@ -110,7 +110,9 @@ public class WelfareSyncService {
 
     private WelfareProgramSource enrich(Gov24ServiceListItem item) {
         Gov24PageResponse<Gov24ServiceDetailItem> detailResponse = client.serviceDetail(item.serviceId());
-        Gov24ServiceDetailItem detail = detailResponse.data().stream().findFirst().orElse(null);
+        Gov24ServiceDetailItem detail = detailResponse.data().stream()
+                .filter(candidate -> item.serviceId().equals(candidate.serviceId()))
+                .findFirst().orElse(null);
         Gov24PageResponse<Gov24SupportConditionsItem> conditionResponse = client.supportConditions(1, 1, item.serviceId());
         JsonNode detailJson = detail == null ? objectMapper.createObjectNode() : objectMapper.valueToTree(detail);
         JsonNode conditionJson = conditionResponse.data().isEmpty()
