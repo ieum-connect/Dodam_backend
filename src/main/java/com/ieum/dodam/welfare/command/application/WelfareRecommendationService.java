@@ -2,6 +2,9 @@ package com.ieum.dodam.welfare.command.application;
 
 import com.ieum.dodam.patient.domain.Patient;
 import com.ieum.dodam.patient.domain.repository.PatientRepository;
+import com.ieum.dodam.welfare.domain.WelfareIncomeBand;
+import com.ieum.dodam.welfare.domain.WelfareRegion;
+import com.ieum.dodam.welfare.domain.WelfareRegionScope;
 import com.ieum.dodam.welfare.domain.entity.ChildWelfareProfile;
 import com.ieum.dodam.welfare.domain.entity.WelfareProgram;
 import com.ieum.dodam.welfare.domain.repository.ChildWelfareProfileRepository;
@@ -10,178 +13,173 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
+/**
+ * 아이·가구 조건에 맞는 복지서비스를 골라 일치율 순으로 정렬한다.
+ *
+ * <p>추천 규칙의 우선순위는 다음과 같다.
+ * <ol>
+ *   <li>거주지역을 벗어난 사업, 대상 연령을 벗어난 사업, 선택하지 않은 가구 요건을 전제로 하는
+ *       사업은 {@link WelfareEligibilityEvaluator}에서 제외한다.</li>
+ *   <li>남은 사업은 조건 일치율(%)이 높은 순으로 정렬한다.</li>
+ *   <li>일치율이 같으면 더 좁은 지역(시·군·구 &gt; 시·도 &gt; 전국) 사업을 먼저 보여준다.</li>
+ *   <li>그 다음으로 원본 최신 수정일이 최근인 사업을 먼저 보여준다.</li>
+ * </ol>
+ */
 @Service
 public class WelfareRecommendationService {
-    private static final Pattern INCOME_PERCENT = Pattern.compile("(?:중위소득|기준중위소득)[^0-9]{0,12}(\\d{2,3})\\s*%");
-    private static final List<String> REGIONS = List.of("서울특별시", "부산광역시", "대구광역시", "인천광역시", "광주광역시", "대전광역시", "울산광역시", "세종특별자치시", "경기도", "강원특별자치도", "충청북도", "충청남도", "전북특별자치도", "전라남도", "경상북도", "경상남도", "제주특별자치도");
+    /** 추천 목록에 노출하는 최소 일치율. */
+    private static final int MINIMUM_SCORE = 30;
+    private static final int MAX_ITEMS = 50;
+    /** 만 18세 미만까지 아동 대상 사업을 평가한다. */
+    private static final int MAX_AGE_MONTHS = 215;
+
     private final PatientRepository patients;
     private final ChildWelfareProfileRepository profiles;
     private final WelfareProgramRepository programs;
+    private final WelfareEligibilityEvaluator evaluator;
     private final Clock clock;
 
+    // 생성자가 둘이므로 Spring이 주입에 쓸 생성자를 명시한다(다른 하나는 테스트용 Clock 주입).
     @Autowired
-    public WelfareRecommendationService(PatientRepository patients, ChildWelfareProfileRepository profiles, WelfareProgramRepository programs) {
-        this(patients, profiles, programs, Clock.systemUTC());
+    public WelfareRecommendationService(PatientRepository patients, ChildWelfareProfileRepository profiles,
+                                        WelfareProgramRepository programs, WelfareEligibilityEvaluator evaluator) {
+        this(patients, profiles, programs, evaluator, Clock.systemUTC());
     }
 
-    WelfareRecommendationService(PatientRepository patients, ChildWelfareProfileRepository profiles, WelfareProgramRepository programs, Clock clock) {
+    WelfareRecommendationService(PatientRepository patients, ChildWelfareProfileRepository profiles,
+                                 WelfareProgramRepository programs, WelfareEligibilityEvaluator evaluator, Clock clock) {
         this.patients = patients;
         this.profiles = profiles;
         this.programs = programs;
+        this.evaluator = evaluator;
         this.clock = clock;
     }
 
     public RecommendationResult recommend(UUID patientId, boolean proactive) {
-        Patient child = patients.findById(patientId).orElseThrow(() -> new IllegalArgumentException("아이를 찾을 수 없습니다."));
-        ChildWelfareProfile profile = profiles.findByPatientId(patientId).filter(ChildWelfareProfile::isStorageConsent).orElse(null);
-        if (proactive && profile == null) return new RecommendationResult(true, List.of());
-        int months = ageInMonths(child.getBirthDate());
-        if (months < 0 || months > 95) return new RecommendationResult(false, List.of());
+        Patient child = patients.findById(patientId)
+                .orElseThrow(() -> new IllegalArgumentException("아이를 찾을 수 없습니다."));
+        ChildWelfareProfile profile = profiles.findByPatientId(patientId)
+                .filter(ChildWelfareProfile::isStorageConsent).orElse(null);
+        if (proactive && profile == null) return RecommendationResult.needsProfile();
 
-        LinkedHashMap<String, WelfareProgram> uniquePrograms = new LinkedHashMap<>();
-        programs.findByActiveTrueAndChildCandidateTrueOrderByModifiedAtSourceDescIdDesc()
-                .forEach(program -> uniquePrograms.putIfAbsent(canonicalName(program.getName()), program));
-        List<RecommendationItem> items = uniquePrograms.values().stream()
-                .map(program -> RecommendationItem.of(program, evaluate(program, profile, months)))
-                .filter(item -> item.score() >= 35)
-                .sorted((left, right) -> Double.compare(right.score(), left.score()))
-                .limit(50)
+        int months = ageInMonths(child.getBirthDate());
+        ChildContext context = ChildContext.of(child, profile, months);
+        if (months < 0 || months > MAX_AGE_MONTHS) return new RecommendationResult(false, context, List.of(), 0);
+
+        List<Candidate> candidates = new ArrayList<>();
+        int excluded = 0;
+        for (WelfareProgram program : programs.findByActiveTrueAndChildCandidateTrueOrderByModifiedAtSourceDescIdDesc()) {
+            WelfareEligibilityEvaluator.Evaluation evaluation = evaluator.evaluate(program, profile, months);
+            if (!evaluation.recommendable() || evaluation.score() < MINIMUM_SCORE) {
+                excluded++;
+                continue;
+            }
+            candidates.add(new Candidate(program, evaluation));
+        }
+
+        // 같은 사업명이 같은 지역에 중복 등록된 경우 더 높은 일치율 하나만 남긴다.
+        LinkedHashMap<String, Candidate> deduplicated = new LinkedHashMap<>();
+        candidates.stream().sorted(ordering()).forEach(candidate -> deduplicated.putIfAbsent(candidate.dedupeKey(), candidate));
+
+        List<RecommendationItem> items = deduplicated.values().stream()
+                .sorted(ordering())
+                .limit(MAX_ITEMS)
+                .map(Candidate::toItem)
                 .toList();
-        return new RecommendationResult(false, items);
+        return new RecommendationResult(false, context, items, excluded);
+    }
+
+    private Comparator<Candidate> ordering() {
+        Comparator<Candidate> byScore = Comparator.comparingInt(candidate -> candidate.evaluation().score());
+        Comparator<Candidate> bySpecificity = Comparator.comparingInt(candidate -> candidate.region().scope().specificity());
+        Comparator<Candidate> byModifiedAt = Comparator.comparing(
+                Candidate::modifiedAtSource, Comparator.<Instant>nullsLast(Comparator.<Instant>reverseOrder()));
+        Comparator<Candidate> byName = Comparator.comparing(
+                candidate -> candidate.program().getName(), Comparator.<String>nullsLast(Comparator.<String>naturalOrder()));
+        return byScore.reversed().thenComparing(bySpecificity.reversed()).thenComparing(byModifiedAt).thenComparing(byName);
     }
 
     private int ageInMonths(LocalDate birthDate) {
         if (birthDate == null) return -1;
         Period age = Period.between(birthDate, LocalDate.now(clock));
+        if (age.isNegative()) return -1;
         return age.getYears() * 12 + age.getMonths();
     }
 
-    private ScoreResult evaluate(WelfareProgram program, ChildWelfareProfile profile, int months) {
-        String text = normalizedText(program);
-        double score = 30;
-        List<String> matched = new ArrayList<>();
-        List<String> missing = new ArrayList<>();
+    private record Candidate(WelfareProgram program, WelfareEligibilityEvaluator.Evaluation evaluation) {
+        WelfareRegion region() { return program.region(); }
 
-        if (ageMatches(text, months)) {
-            score += 20;
-            matched.add("아이 연령과 지원대상이 일치해요");
-        } else if (containsAny(text, "영아", "유아", "아동", "보육", "자녀")) {
-            missing.add("세부 연령 조건 확인이 필요해요");
+        Instant modifiedAtSource() { return program.getModifiedAtSource(); }
+
+        String dedupeKey() {
+            String name = program.getName() == null ? "" : program.getName().toLowerCase(Locale.KOREAN).replaceAll("[^가-힣a-z0-9]", "");
+            return name + "|" + region().label();
         }
 
-        if (profile == null) {
-            missing.add("가족정보를 저장하면 지역·소득·가구 조건을 반영할 수 있어요");
-            return new ScoreResult(Math.min(score, 100), matched, missing);
-        }
-
-        String region = lower(profile.getRegionCode());
-        if (!region.isBlank()) {
-            List<String> tokens = regionTokens(region);
-            if (tokens.stream().anyMatch(text::contains)) {
-                score += 12;
-                matched.add("거주지역 조건이 일치해요");
-            } else if (REGIONS.stream().map(this::lower).anyMatch(text::contains)) {
-                score -= 30;
-                missing.add("다른 시·도에서 제공하는 서비스예요");
-            } else {
-                score += 4;
-                matched.add("특정 시·도 제한이 확인되지 않았어요");
-            }
-        }
-
-        Integer income = incomeMaximum(profile.getIncomeBand());
-        Integer programIncome = programIncomeLimit(text);
-        if (income != null && programIncome != null) {
-            if (income <= programIncome) {
-                score += 14;
-                matched.add("입력한 소득구간이 지원기준 범위에 들어요");
-            } else {
-                score -= 18;
-                missing.add("소득기준을 초과할 가능성이 있어요");
-            }
-        } else if (programIncome != null) {
-            missing.add("소득구간 확인이 필요해요");
-        }
-
-        score += flagScore(text, profile.getDualIncome(), matched, "맞벌이", "맞벌이 조건이 일치해요");
-        score += flagScore(text, profile.getSingleParent(), matched, "한부모", "한부모 조건이 일치해요");
-        score += flagScore(text, profile.getMulticultural(), matched, "다문화", "다문화가정 조건이 일치해요");
-        score += flagScore(text, profile.getDisability(), matched, "장애", "장애 관련 조건이 일치해요");
-
-        if (profile.getChildCount() != null && profile.getChildCount() >= 2 && containsAny(text, "다자녀", "2자녀", "두 자녀", "자녀 2")) {
-            score += 10;
-            matched.add("자녀 수 조건이 일치해요");
-        }
-        String childcare = lower(profile.getChildcareStatus());
-        if (!childcare.isBlank() && text.contains(childcare)) {
-            score += 8;
-            matched.add("현재 양육 형태와 관련된 서비스예요");
-        }
-        if (program.getModifiedAtSource() != null) score += 2;
-        if (matched.isEmpty()) missing.add("신청기관에서 세부 자격을 확인해 주세요");
-        return new ScoreResult(Math.max(0, Math.min(Math.round(score), 100)), matched, missing);
-    }
-
-    private double flagScore(String text, Boolean enabled, List<String> matched, String keyword, String message) {
-        if (Boolean.TRUE.equals(enabled) && text.contains(keyword)) {
-            matched.add(message);
-            return 10;
-        }
-        return 0;
-    }
-
-    private boolean ageMatches(String text, int months) {
-        if (months <= 35 && containsAny(text, "영아", "0세", "1세", "2세", "36개월", "보육")) return true;
-        if (months >= 36 && months <= 83 && containsAny(text, "유아", "3세", "4세", "5세", "6세", "미취학", "보육")) return true;
-        return containsAny(text, "아동", "자녀", "만 18세 미만", "만18세 미만");
-    }
-
-    private List<String> regionTokens(String region) {
-        return List.of(region.split("\\s+")).stream().filter(token -> token.length() >= 2).toList();
-    }
-
-    private Integer incomeMaximum(String value) {
-        if (value == null || value.isBlank() || value.equals("ABOVE_150")) return null;
-        Matcher matcher = Pattern.compile("(\\d{2,3})").matcher(value);
-        return matcher.find() ? Integer.parseInt(matcher.group(1)) : null;
-    }
-
-    private Integer programIncomeLimit(String text) {
-        Matcher matcher = INCOME_PERCENT.matcher(text);
-        if (!matcher.find()) return null;
-        int value = Integer.parseInt(matcher.group(1));
-        return value >= 20 && value <= 300 ? value : null;
-    }
-
-    private String normalizedText(WelfareProgram program) {
-        return lower(String.join(" ", safe(program.getName()), safe(program.getPurposeSummary()), safe(program.getPurposeDetail()), safe(program.getTargetText()), safe(program.getSelectionCriteriaText()), safe(program.getBenefitText()), safe(program.getAgencyName())));
-    }
-
-    private boolean containsAny(String text, String... keywords) {
-        for (String keyword : keywords) if (text.contains(keyword)) return true;
-        return false;
-    }
-
-    private String safe(String value) { return value == null ? "" : value; }
-    private String lower(String value) { return safe(value).toLowerCase(Locale.KOREAN); }
-    private String canonicalName(String value) { return lower(value).replaceAll("[^가-힣a-z0-9]", ""); }
-
-    public record RecommendationResult(boolean profileRequired, List<RecommendationItem> items) {}
-    public record RecommendationItem(UUID programId, String name, double score, String status, List<String> matchedConditions, List<String> missingConditions) {
-        static RecommendationItem of(WelfareProgram program, ScoreResult result) {
-            String status = result.score() >= 70 ? "ELIGIBLE" : "POSSIBLE";
-            return new RecommendationItem(program.getId(), program.getName(), result.score(), status, result.matched(), result.missing());
+        RecommendationItem toItem() {
+            return new RecommendationItem(program.getId(), program.getExternalServiceId(), program.getName(),
+                    program.getPurposeSummary(), program.getAgencyName(), program.getApplicationDeadline(),
+                    evaluation.score(), evaluation.status(), region().scope(), region().label(),
+                    evaluation.matchedMessages(), evaluation.missingMessages(),
+                    evaluation.conditions().stream().map(ConditionView::from).toList());
         }
     }
-    private record ScoreResult(double score, List<String> matched, List<String> missing) {}
+
+    /** 추천 결과 전체. {@code excludedCount}는 제외 규칙으로 걸러낸 사업 수다. */
+    public record RecommendationResult(boolean profileRequired, ChildContext child, List<RecommendationItem> items, int excludedCount) {
+        static RecommendationResult needsProfile() {
+            return new RecommendationResult(true, null, List.of(), 0);
+        }
+    }
+
+    /** AI 설명과 화면 안내에 쓰는 아이·가구 요약. */
+    public record ChildContext(String childName, Integer ageMonths, String ageLabel, String regionLabel,
+                               String incomeBandLabel, Integer householdSize, Integer childCount,
+                               Boolean dualIncome, Boolean singleParent, Boolean multicultural, Boolean disability,
+                               String childcareStatus, boolean profileSaved) {
+        static ChildContext of(Patient child, ChildWelfareProfile profile, int months) {
+            WelfareRegion region = profile == null ? null : profile.region();
+            String regionLabel = region == null || !region.hasProvince() ? null : region.label();
+            String incomeLabel = profile == null ? null : WelfareIncomeBand.from(profile.getIncomeBand())
+                    .map(WelfareIncomeBand::label).orElse(null);
+            return new ChildContext(child.getChildName(), months < 0 ? null : months, ageLabel(months), regionLabel, incomeLabel,
+                    profile == null ? null : profile.getHouseholdSize(),
+                    profile == null ? null : profile.getChildCount(),
+                    profile == null ? null : profile.getDualIncome(),
+                    profile == null ? null : profile.getSingleParent(),
+                    profile == null ? null : profile.getMulticultural(),
+                    profile == null ? null : profile.getDisability(),
+                    profile == null ? null : profile.getChildcareStatus(),
+                    profile != null);
+        }
+
+        private static String ageLabel(int months) {
+            if (months < 0) return null;
+            return months < 24 ? "생후 " + months + "개월" : "만 " + months / 12 + "세";
+        }
+    }
+
+    public record RecommendationItem(UUID programId, String externalServiceId, String name, String summary,
+                                     String agencyName, String applicationDeadline, int score, String status,
+                                     WelfareRegionScope regionScope, String regionLabel,
+                                     List<String> matchedConditions, List<String> missingConditions,
+                                     List<ConditionView> conditions) {}
+
+    /** 조건별 판정 상세. 프론트엔드와 AI 설명이 같은 근거를 공유한다. */
+    public record ConditionView(String key, String label, String status, double weight, String message) {
+        static ConditionView from(WelfareEligibilityEvaluator.Condition condition) {
+            return new ConditionView(condition.key(), condition.label(), condition.status().name(),
+                    condition.weight(), condition.message());
+        }
+    }
 }

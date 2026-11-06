@@ -1,5 +1,6 @@
 package com.ieum.dodam.welfare.api.controller;
 
+import com.ieum.dodam.welfare.domain.WelfareIncomeBand;
 import com.ieum.dodam.welfare.domain.entity.ChildWelfareProfile;
 import com.ieum.dodam.welfare.domain.repository.ChildWelfareProfileRepository;
 import com.ieum.dodam.care_relation.domain.CareRelationStatus;
@@ -26,14 +27,10 @@ public class ChildWelfareProfileApiController {
 
     @GetMapping("/options")
     public ProfileOptionsResponse options() {
-        return new ProfileOptionsResponse(List.of(
-                new IncomeBandOption("BELOW_50", "기준중위소득 50% 이하", 50),
-                new IncomeBandOption("BELOW_75", "기준중위소득 75% 이하", 75),
-                new IncomeBandOption("BELOW_100", "기준중위소득 100% 이하", 100),
-                new IncomeBandOption("BELOW_120", "기준중위소득 120% 이하", 120),
-                new IncomeBandOption("BELOW_150", "기준중위소득 150% 이하", 150),
-                new IncomeBandOption("ABOVE_150", "기준중위소득 150% 초과", null)
-        ), List.of(
+        // 소득구간 정의는 추천 엔진과 같은 열거형을 공유한다.
+        return new ProfileOptionsResponse(java.util.Arrays.stream(WelfareIncomeBand.values())
+                .map(band -> new IncomeBandOption(band.name(), band.label(), band.upperInclusivePercent()))
+                .toList(), List.of(
                 new ChildcareOption("가정양육", "가정양육"),
                 new ChildcareOption("어린이집 이용", "어린이집 이용"),
                 new ChildcareOption("유치원 이용", "유치원 이용"),
@@ -76,12 +73,12 @@ public class ChildWelfareProfileApiController {
     }
 
     record ProfileResponse(UUID patientId, boolean storageConsent, Instant consentedAt, long profileVersion,
-                           String regionCode, Integer householdSize, String incomeBand, Integer childCount,
+                           String regionCode, String regionName, Integer householdSize, String incomeBand, Integer childCount,
                            Boolean singleParent, Boolean multicultural, Boolean disability, Boolean dualIncome,
                            String childcareStatus, boolean healthDataConsent, Instant updatedAt) {
         static ProfileResponse from(ChildWelfareProfile p) {
             return new ProfileResponse(p.getPatientId(), p.isStorageConsent(), p.getConsentedAt(), p.getProfileVersion(),
-                    p.getRegionCode(), p.getHouseholdSize(), p.getIncomeBand(), p.getChildCount(), p.getSingleParent(),
+                    p.getRegionCode(), p.getRegionName(), p.getHouseholdSize(), p.getIncomeBand(), p.getChildCount(), p.getSingleParent(),
                     p.getMulticultural(), p.getDisability(), p.getDualIncome(), p.getChildcareStatus(),
                     p.isHealthDataConsent(), p.getUpdatedAt());
         }
