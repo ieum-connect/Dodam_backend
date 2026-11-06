@@ -32,7 +32,9 @@ spring:
     locations: classpath:db/migration
     clean-disabled: true
     validate-on-migrate: true
-    out-of-order: false
+    # develop 병합으로 과거 시각의 일정 마이그레이션이 뒤늦게 들어와도
+    # 이미 적용된 복지 마이그레이션을 되돌리지 않고 순서대로 적용한다.
+    out-of-order: true
   jpa:
     hibernate:
       ddl-auto: validate
