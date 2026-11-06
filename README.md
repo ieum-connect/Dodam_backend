@@ -166,3 +166,17 @@
 - [PR 컨벤션](docs/convention/PR_CONVENTION.md)
 
 개발 절차: Issue 생성 → 브랜치 생성 → 개발 및 커밋 → PR 생성 → 코드 리뷰 → 승인 → 병합
+
+## 할 일 승인과 캘린더 API
+
+- `GET /api/action-items?patientId={id}`: 접근 가능한 아이의 원본 문서가 남아 있는 후보를 조회합니다. 응답 필드는 `id`, `documentId`, `type`, `title`, `description`, `dueAt`, `approvalStatus`입니다. `approvalStatus=PENDING`이 승인 대기 상태입니다.
+- `POST /api/action-items/{id}/approve`: 선택적으로 `{"startsAt":"2026-12-03T00:00:00Z"}`를 전달합니다. 시간이 없으면 후보의 `dueAt`을 사용하며, 둘 다 없으면 400을 반환합니다. 승인과 일정 생성은 하나의 트랜잭션으로 처리하며 반복 승인은 기존 일정을 반환합니다.
+- `POST /api/action-items/{id}/reject`: 후보를 거절하며 일정은 생성하지 않습니다. 반복 거절도 204를 반환합니다. 거절·취소된 후보를 승인하거나 승인된 후보를 거절하면 409를 반환합니다.
+- `GET /api/schedules?patientId={id}&from={ISO시각}&to={ISO시각}`: 시작 시각을 기준으로 `from` 이상, `to` 미만의 일정을 조회합니다. 조회 범위는 최대 370일입니다.
+- `POST /api/schedules`: `patientId`, `title`(최대 200자), `scheduleType`, `startsAt`을 전달해 직접 등록합니다. 종류는 `MEDICATION`, `REVISIT`, `TEST`, `PERSONAL`, `OTHER`입니다.
+
+현재 사용자의 본인 프로필 또는 ACTIVE 가족 관계가 있어야 조회·승인·등록할 수 있습니다. 시각은 시간대가 포함된 ISO 8601 형식으로 전달하며 화면은 사용자 기기의 현지 시각으로 표시합니다. 직접 등록한 일정의 `actionItemId`는 null입니다. 후보 한 건에서 생성되는 일정은 DB 유일 제약과 후보 행 잠금으로 한 건만 허용합니다. 원본 문서 삭제 후 승인 전 후보는 기존 삭제 이벤트에 의해 취소되고, 이미 승인한 일정은 보존됩니다. 접근 권한이 있으면 원본 삭제 후에도 이미 처리한 승인·거절의 재요청에 기존 결과를 반환합니다.
+
+업로드 후 AI 서버의 `POST /internal/documents/{documentId}/analyze`로 분석을 요청합니다. AI 서버는 원본을 읽어 추출한 일정·복약·주의 항목을 문서와 연결된 `action_items`의 승인 대기 후보로 저장합니다. 문서 상태 완료와 후보 저장은 AI 서버의 같은 트랜잭션으로 처리합니다. 문서에 명시된 날짜·시간만 사용하며 날짜가 불명확하면 `due_at=null`로 남겨 보호자가 입력합니다. 승인 없이 `schedules`를 생성하지 않습니다. 반복 복약 일정과 예약 알림 발송은 이 변경의 범위에 포함하지 않습니다.
+
+일반 실행은 실제 AI 키와 모델 설정을 사용하는 AI 서버(`uvicorn app.main:app`)를 연결합니다. 키가 없는 로컬 연동 검증에서는 AI 저장소의 `python -m tests.manual_contract_server`가 고정 모델 응답을 반환하며, 이 실행은 실제 AI 판독 검증이 아닙니다. 테스트 화면은 `VITE_AI_TEST_MODE=true`로 예시 응답 표시를 켭니다. 두 서버는 동일한 도담 DB와 `STORAGE_LOCAL_ROOT`를 사용하고 `AI_INTERNAL_TOKEN`이 일치해야 합니다.
