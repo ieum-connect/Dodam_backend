@@ -38,7 +38,13 @@ public class WelfareEligibilityEvaluator {
     private static final int ELIGIBLE_SCORE = 75;
 
     private static final Pattern INCOME_PERCENT = Pattern.compile("(?:기준\\s*)?중위소득[^0-9%]{0,20}?(\\d{2,3})\\s*%");
-    private static final List<String> MEANS_TESTED = List.of("기초생활", "수급자", "수급권자", "차상위", "생계급여", "의료급여", "주거급여", "교육급여");
+    // 상세 안내에는 기존 수급자의 지급정지, 의료급여 전산관리번호 같은
+    // 예외·행정 문구도 포함된다. 이런 단어만으로 소득심사 사업으로 오인하면
+    // 아동수당처럼 소득과 무관한 사업이 잘못 미충족 처리된다.
+    private static final List<String> MEANS_TESTED = List.of(
+            "기초생활수급자", "기초생활수급 가구", "차상위계층", "차상위 가구",
+            "생계급여 수급자", "의료급여 수급자", "주거급여 수급자", "교육급여 수급자",
+            "소득인정액");
 
     /** 프로필 항목과 1:1로 대응하는 가구 요건. */
     private static final List<HouseholdGate> HOUSEHOLD_GATES = List.of(

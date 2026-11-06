@@ -3,6 +3,7 @@ package com.ieum.dodam.welfare.infrastructure.gov24;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.web.client.RestClient;
 import org.springframework.boot.ApplicationRunner;
 
@@ -16,6 +17,7 @@ public class Gov24WelfareConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(com.ieum.dodam.welfare.command.application.WelfareSyncService.class)
     ApplicationRunner welfareInitialSync(Gov24WelfareProperties properties,
                                          com.ieum.dodam.welfare.command.application.WelfareSyncService syncService) {
         return args -> {

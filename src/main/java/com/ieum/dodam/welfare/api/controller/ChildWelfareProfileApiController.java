@@ -77,8 +77,12 @@ public class ChildWelfareProfileApiController {
                            Boolean singleParent, Boolean multicultural, Boolean disability, Boolean dualIncome,
                            String childcareStatus, boolean healthDataConsent, Instant updatedAt) {
         static ProfileResponse from(ChildWelfareProfile p) {
+            String displayRegionName = p.getRegionName();
+            if (displayRegionName == null || displayRegionName.isBlank()) {
+                displayRegionName = p.region().label();
+            }
             return new ProfileResponse(p.getPatientId(), p.isStorageConsent(), p.getConsentedAt(), p.getProfileVersion(),
-                    p.getRegionCode(), p.getRegionName(), p.getHouseholdSize(), p.getIncomeBand(), p.getChildCount(), p.getSingleParent(),
+                    p.getRegionCode(), displayRegionName, p.getHouseholdSize(), p.getIncomeBand(), p.getChildCount(), p.getSingleParent(),
                     p.getMulticultural(), p.getDisability(), p.getDualIncome(), p.getChildcareStatus(),
                     p.isHealthDataConsent(), p.getUpdatedAt());
         }

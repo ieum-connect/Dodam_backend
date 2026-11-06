@@ -128,6 +128,19 @@ class WelfareEligibilityEvaluatorTest {
     @DisplayName("연령과 소득")
     class AgeAndIncome {
         @Test
+        @DisplayName("행정 예외 문구만으로 소득 기준을 만들지 않는다")
+        void ignoresAdministrativeIncomeWordsInChildAllowance() {
+            Evaluation evaluation = evaluator.evaluate(
+                    program("아동수당", "중앙행정기관", "보건복지부", "만 0세~7세 아동",
+                            "만 8세 미만 모든 아동에게 지급. 의료급여 전산관리번호 대상자 포함. 수급을 받던 아동도 연령 요건 충족 시 지급", WelfareTestFixtures.NOW),
+                    profile("서울특별시 강동구").build(), THIRTY_MONTHS);
+
+            assertThat(evaluation.conditions()).noneMatch(condition -> condition.key().equals("INCOME"));
+            assertThat(evaluation.score()).isEqualTo(100);
+            assertThat(evaluation.status()).isEqualTo("ELIGIBLE");
+        }
+
+        @Test
         @DisplayName("대상 연령을 벗어나면 추천하지 않는다")
         void excludesProgramOutsideAgeRange() {
             Evaluation evaluation = evaluator.evaluate(program("초등 돌봄교실", "서울특별시", "초등학생 자녀"),
