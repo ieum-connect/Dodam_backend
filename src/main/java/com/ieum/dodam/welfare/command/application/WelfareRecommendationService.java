@@ -13,6 +13,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -46,7 +47,10 @@ public class WelfareRecommendationService {
         int months = ageInMonths(child.getBirthDate());
         if (months < 0 || months > 95) return new RecommendationResult(false, List.of());
 
-        List<RecommendationItem> items = programs.findByActiveTrueAndChildCandidateTrueOrderByModifiedAtSourceDescIdDesc().stream()
+        LinkedHashMap<String, WelfareProgram> uniquePrograms = new LinkedHashMap<>();
+        programs.findByActiveTrueAndChildCandidateTrueOrderByModifiedAtSourceDescIdDesc()
+                .forEach(program -> uniquePrograms.putIfAbsent(canonicalName(program.getName()), program));
+        List<RecommendationItem> items = uniquePrograms.values().stream()
                 .map(program -> RecommendationItem.of(program, evaluate(program, profile, months)))
                 .filter(item -> item.score() >= 35)
                 .sorted((left, right) -> Double.compare(right.score(), left.score()))
@@ -166,6 +170,7 @@ public class WelfareRecommendationService {
 
     private String safe(String value) { return value == null ? "" : value; }
     private String lower(String value) { return safe(value).toLowerCase(Locale.KOREAN); }
+    private String canonicalName(String value) { return lower(value).replaceAll("[^가-힣a-z0-9]", ""); }
 
     public record RecommendationResult(boolean profileRequired, List<RecommendationItem> items) {}
     public record RecommendationItem(UUID programId, String name, double score, String status, List<String> matchedConditions, List<String> missingConditions) {
