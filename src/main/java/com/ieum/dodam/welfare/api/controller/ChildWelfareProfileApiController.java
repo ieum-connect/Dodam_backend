@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -22,6 +23,18 @@ public class ChildWelfareProfileApiController {
     private final CareRelationRepository relations;
     private final UserRepository users;
     public ChildWelfareProfileApiController(ChildWelfareProfileRepository profiles, CareRelationRepository relations, UserRepository users) { this.profiles = profiles; this.relations = relations; this.users = users; }
+
+    @GetMapping("/options")
+    public ProfileOptionsResponse options() {
+        return new ProfileOptionsResponse(List.of(
+                new IncomeBandOption("BELOW_50", "기준중위소득 50% 이하", 50),
+                new IncomeBandOption("BELOW_75", "기준중위소득 75% 이하", 75),
+                new IncomeBandOption("BELOW_100", "기준중위소득 100% 이하", 100),
+                new IncomeBandOption("BELOW_120", "기준중위소득 120% 이하", 120),
+                new IncomeBandOption("BELOW_150", "기준중위소득 150% 이하", 150),
+                new IncomeBandOption("ABOVE_150", "기준중위소득 150% 초과", null)
+        ));
+    }
 
     @GetMapping
     public ProfileResponse get(@AuthenticationPrincipal OAuth2User principal, @RequestParam UUID patientId) {
@@ -65,4 +78,7 @@ public class ChildWelfareProfileApiController {
                     p.isHealthDataConsent(), p.getUpdatedAt());
         }
     }
+
+    record ProfileOptionsResponse(List<IncomeBandOption> incomeBands) {}
+    record IncomeBandOption(String value, String label, Integer maximumPercent) {}
 }

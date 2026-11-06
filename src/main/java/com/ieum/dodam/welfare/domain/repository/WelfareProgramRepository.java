@@ -13,4 +13,5 @@ public interface WelfareProgramRepository extends JpaRepository<WelfareProgram, 
     List<WelfareProgram> findByActiveTrueAndNameContainingIgnoreCaseOrderByModifiedAtSourceDescIdDesc(String query, Pageable pageable);
     List<WelfareProgram> findByActiveTrueOrderByModifiedAtSourceDescIdDesc(Pageable pageable);
     List<WelfareProgram> findByActiveTrueOrderByModifiedAtSourceDescIdDesc();
+    List<WelfareProgram> findByActiveTrueAndChildCandidateTrueOrderByModifiedAtSourceDescIdDesc();
 }
