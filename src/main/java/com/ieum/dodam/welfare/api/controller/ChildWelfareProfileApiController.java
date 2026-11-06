@@ -33,7 +33,13 @@ public class ChildWelfareProfileApiController {
                 new IncomeBandOption("BELOW_120", "기준중위소득 120% 이하", 120),
                 new IncomeBandOption("BELOW_150", "기준중위소득 150% 이하", 150),
                 new IncomeBandOption("ABOVE_150", "기준중위소득 150% 초과", null)
-        ), List.of("서울특별시", "부산광역시", "대구광역시", "인천광역시", "광주광역시", "대전광역시", "울산광역시", "세종특별자치시", "경기도", "강원특별자치도", "충청북도", "충청남도", "전북특별자치도", "전라남도", "경상북도", "경상남도", "제주특별자치도"),
+        ), List.of(
+                new ChildcareOption("가정양육", "가정양육"),
+                new ChildcareOption("어린이집 이용", "어린이집 이용"),
+                new ChildcareOption("유치원 이용", "유치원 이용"),
+                new ChildcareOption("학교 재학", "학교 재학"),
+                new ChildcareOption("기타", "기타")
+        ),
                 new IncomeGuide(2026, List.of(2564238, 4199292, 5359036, 6494738, 7556719, 8555952, 9515150),
                         "https://www.mohw.go.kr/menu.es?mid=a10708010900"));
     }
@@ -81,7 +87,8 @@ public class ChildWelfareProfileApiController {
         }
     }
 
-    record ProfileOptionsResponse(List<IncomeBandOption> incomeBands, List<String> regions, IncomeGuide incomeGuide) {}
+    record ProfileOptionsResponse(List<IncomeBandOption> incomeBands, List<ChildcareOption> childcareOptions, IncomeGuide incomeGuide) {}
     record IncomeBandOption(String value, String label, Integer maximumPercent) {}
+    record ChildcareOption(String value, String label) {}
     record IncomeGuide(int year, List<Integer> medianMonthlyIncomeByHouseholdSize, String sourceUrl) {}
 }
