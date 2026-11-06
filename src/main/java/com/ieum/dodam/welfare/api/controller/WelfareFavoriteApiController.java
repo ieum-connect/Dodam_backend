@@ -51,7 +51,7 @@ public class WelfareFavoriteApiController {
     }
 
     private UUID target(OAuth2User principal, UUID patientId) {
-        User actor = users.requireByKakaoId(String.valueOf(principal.getAttribute("id")));
+        User actor = users.requireByKakaoId(String.valueOf(principal.getAttributes().get("id")));
         return permissions.resolveTargetPatient(actor, patientId);
     }
 }

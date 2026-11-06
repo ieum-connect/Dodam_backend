@@ -31,6 +31,6 @@ public class WelfareRecommendationApiController {
     }
 
     private User actor(OAuth2User principal) {
-        return users.requireByKakaoId(String.valueOf(principal.getAttribute("id")));
+        return users.requireByKakaoId(String.valueOf(principal.getAttributes().get("id")));
     }
 }
