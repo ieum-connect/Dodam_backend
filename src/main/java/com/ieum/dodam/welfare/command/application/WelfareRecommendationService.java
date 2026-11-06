@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 @Service
 public class WelfareRecommendationService {
     private static final Pattern INCOME_PERCENT = Pattern.compile("(?:중위소득|기준중위소득)[^0-9]{0,12}(\\d{2,3})\\s*%");
+    private static final List<String> REGIONS = List.of("서울특별시", "부산광역시", "대구광역시", "인천광역시", "광주광역시", "대전광역시", "울산광역시", "세종특별자치시", "경기도", "강원특별자치도", "충청북도", "충청남도", "전북특별자치도", "전라남도", "경상북도", "경상남도", "제주특별자치도");
     private final PatientRepository patients;
     private final ChildWelfareProfileRepository profiles;
     private final WelfareProgramRepository programs;
@@ -89,9 +90,12 @@ public class WelfareRecommendationService {
             if (tokens.stream().anyMatch(text::contains)) {
                 score += 12;
                 matched.add("거주지역 조건이 일치해요");
-            } else if (containsAny(text, "전국", "소득", "가구", "아동", "자녀")) {
+            } else if (REGIONS.stream().map(this::lower).anyMatch(text::contains)) {
+                score -= 30;
+                missing.add("다른 시·도에서 제공하는 서비스예요");
+            } else {
                 score += 4;
-                matched.add("전국 단위 서비스로 확인돼요");
+                matched.add("특정 시·도 제한이 확인되지 않았어요");
             }
         }
 
