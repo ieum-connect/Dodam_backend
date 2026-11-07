@@ -10,6 +10,7 @@ server:
         http-only: true
         max-age: 2592000
         same-site: lax
+        secure: ${JWT_COOKIE_SECURE:false}
 
 spring:
   application:
@@ -98,3 +99,4 @@ jwt:
   secret: ${JWT_SECRET:}
   cookie-name: DODAM_TOKEN
   ttl-days: 30
+  cookie-secure: ${JWT_COOKIE_SECURE:false}
