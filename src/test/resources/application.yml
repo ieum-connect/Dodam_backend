@@ -32,3 +32,7 @@ jwt:
 dodam:
   demo-login: true
   frontend-origin: http://localhost:3000
+
+  ai:
+    base-url: ''
+    internal-token: ''

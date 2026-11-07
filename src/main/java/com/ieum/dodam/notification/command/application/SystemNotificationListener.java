@@ -40,6 +40,8 @@ public class SystemNotificationListener {
                                     : patient.getUserId();
                     case RELATION_REQUESTED, RELATION_CANCELED, HEALTH_RECORD_CREATED ->
                             patient.getUserId();
+                    case SCHEDULE_DUE ->
+                            throw new IllegalArgumentException("Use schedule reminder delivery");
                 };
         if (recipient.equals(event.actorId())) {
             return;
@@ -55,6 +57,9 @@ public class SystemNotificationListener {
                             case RELATION_CANCELED -> "이 연결 요청을 취소했어요.";
                             case RELATION_REVOKED -> "이 보호자 연결을 해제했어요.";
                             case HEALTH_RECORD_CREATED -> "이 내 건강기록을 작성했어요.";
+                            case SCHEDULE_DUE ->
+                                    throw new IllegalArgumentException(
+                                            "Use schedule reminder delivery");
                         };
         notifications.save(
                 new SystemNotification(

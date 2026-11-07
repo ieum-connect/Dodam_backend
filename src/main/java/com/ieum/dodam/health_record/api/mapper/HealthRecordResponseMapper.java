@@ -22,7 +22,7 @@ public class HealthRecordResponseMapper {
                 r.recordedAt(),
                 r.createdAt(),
                 r.updatedAt(),
-                r.proxyWritten());
+                r.proxyWritten(), r.tagIds());
     }
 
     /** 커서와 조회 항목을 함께 응답한다. */
