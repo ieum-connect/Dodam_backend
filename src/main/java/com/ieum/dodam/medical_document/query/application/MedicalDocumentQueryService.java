@@ -178,6 +178,7 @@ public class MedicalDocumentQueryService {
                 visitedOn,
                 author,
                 document.getStatus(),
+                document.getEmbeddingStatus(),
                 jobStatus,
                 resultStatus,
                 document.getStatusChangedAt(),

@@ -53,7 +53,9 @@ class AiChatQueryServiceTest {
         actor.setId(UUID.randomUUID());
         UUID patientId = UUID.randomUUID();
         ChatSession session = ChatSession.open(patientId, actor.getId(), "채팅방");
-        ChatMessage answer = ChatMessage.answer(session.getId(), "기존 답변", UUID.randomUUID());
+        ChatMessage answer = ChatMessage.answer(
+                session.getId(), "기존 답변", UUID.randomUUID(), null
+        );
         when(sessions.findByIdAndStartedByUserId(session.getId(), actor.getId()))
                 .thenReturn(Optional.of(session));
         when(messages.findBySessionIdOrderByCreatedAtAsc(session.getId()))

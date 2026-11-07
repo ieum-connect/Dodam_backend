@@ -30,6 +30,7 @@ public class MedicalDocumentResponseMapper {
                 view.visitedOn(),
                 new MedicalDocumentDetailResponseDto.Author(view.author().name(), view.author().role()),
                 view.documentStatus(),
+                view.embeddingStatus(),
                 view.latestAiJobStatus(),
                 view.resultStatus(),
                 toKst(view.statusChangedAt()),

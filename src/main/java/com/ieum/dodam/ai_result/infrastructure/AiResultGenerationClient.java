@@ -41,6 +41,16 @@ public class AiResultGenerationClient {
                 .body(GenerationResponse.class);
     }
 
+    /** 권한 검증된 문서 범위에서 질문과 관련된 임베딩 청크를 검색한다. */
+    public EvidenceSearchResponse searchEvidence(EvidenceSearchRequest request) {
+        return restClient.post()
+                .uri("/internal/document-evidence/search")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .body(EvidenceSearchResponse.class);
+    }
+
     public record GenerationRequest(
             @JsonProperty("request_id") UUID requestId,
             @JsonProperty("patient_id") UUID patientId,
@@ -83,5 +93,43 @@ public class AiResultGenerationClient {
     }
 
     public record Sentence(String text, @JsonProperty("citation_ids") List<UUID> citationIds) {
+    }
+
+    public record EvidenceSearchRequest(
+            @JsonProperty("request_id") UUID requestId,
+            @JsonProperty("patient_id") UUID patientId,
+            @JsonProperty("actor_user_id") UUID actorUserId,
+            String question,
+            @JsonProperty("allowed_document_ids") List<UUID> allowedDocumentIds,
+            int limit
+    ) {
+    }
+
+    public record EvidenceSearchResponse(
+            @JsonProperty("model_name") String modelName,
+            int dimensions,
+            @JsonProperty("searchable_document_ids") List<UUID> searchableDocumentIds,
+            List<EvidenceSearchItem> items,
+            List<EvidenceWarning> warnings
+    ) {
+    }
+
+    public record EvidenceSearchItem(
+            @JsonProperty("citation_id") UUID citationId,
+            @JsonProperty("source_type") String sourceType,
+            @JsonProperty("document_id") UUID documentId,
+            @JsonProperty("chunk_id") UUID chunkId,
+            @JsonProperty("page_no") Integer pageNo,
+            @JsonProperty("source_text") String sourceText,
+            double similarity,
+            @JsonProperty("document_status") String documentStatus
+    ) {
+        public Evidence toEvidence() {
+            return new Evidence(citationId, sourceType, documentId, pageNo,
+                    null, sourceText, null, null, null);
+        }
+    }
+
+    public record EvidenceWarning(String code, @JsonProperty("document_id") UUID documentId) {
     }
 }
