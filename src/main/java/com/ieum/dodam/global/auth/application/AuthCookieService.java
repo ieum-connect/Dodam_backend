@@ -18,6 +18,8 @@ public class AuthCookieService {
     private final String cookieName;
     private final long ttlDays;
     private final String sessionCookieName;
+    @Value("${jwt.cookie-secure:false}")
+    private boolean secure;
 
     public AuthCookieService(
             JwtService jwt,
@@ -65,7 +67,7 @@ public class AuthCookieService {
     private void attach(HttpServletResponse response, String name, String value, long maxAgeSeconds) {
         ResponseCookie cookie = ResponseCookie.from(name, value)
                 .httpOnly(true)
-                .secure(false)
+                .secure(secure)
                 .sameSite("Lax")
                 .path("/")
                 .maxAge(Duration.ofSeconds(maxAgeSeconds))
