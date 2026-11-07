@@ -52,6 +52,12 @@ public class HealthRecord {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @jakarta.persistence.ElementCollection
+    @jakarta.persistence.CollectionTable(name="health_record_tags",joinColumns=@jakarta.persistence.JoinColumn(name="record_id"))
+    @Column(name="tag_id",nullable=false)
+    @org.hibernate.annotations.BatchSize(size=100)
+    private java.util.Set<UUID> tagIds = new java.util.HashSet<>();
+    public void replaceTags(java.util.Set<UUID> ids){ tagIds.clear();tagIds.addAll(ids); }
     @Version private long version;
 
     /** 텍스트 건강기록을 생성하고 서버 시각을 기록한다. */
