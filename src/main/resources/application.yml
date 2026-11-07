@@ -32,7 +32,9 @@ spring:
     locations: classpath:db/migration
     clean-disabled: true
     validate-on-migrate: true
-    out-of-order: false
+    # develop 병합으로 과거 시각의 일정 마이그레이션이 뒤늦게 들어와도
+    # 이미 적용된 복지 마이그레이션을 되돌리지 않고 순서대로 적용한다.
+    out-of-order: true
   jpa:
     hibernate:
       ddl-auto: validate
@@ -66,6 +68,14 @@ logging:
 dodam:
   demo-login: ${DEMO_LOGIN:false}
   frontend-origin: ${FRONTEND_ORIGIN:http://localhost:4173}
+  welfare:
+    gov24:
+      base-url: ${GOV24_WELFARE_BASE_URL:https://api.odcloud.kr/api}
+      service-key: ${GOV24_WELFARE_SERVICE_KEY:}
+      page-size: ${GOV24_WELFARE_PAGE_SIZE:100}
+      connect-timeout: ${GOV24_WELFARE_CONNECT_TIMEOUT:2s}
+      read-timeout: ${GOV24_WELFARE_READ_TIMEOUT:10s}
+      sync-enabled: ${GOV24_WELFARE_SYNC_ENABLED:false}
   document:
     upload:
       max-bytes: 20971520
