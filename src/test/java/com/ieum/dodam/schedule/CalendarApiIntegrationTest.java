@@ -45,6 +45,8 @@ class CalendarApiIntegrationTest {
     @Autowired MedicalDocumentRepository documents;
     @Autowired ActionItemRepository actions;
     @Autowired ScheduleRepository schedules;
+    @Autowired com.ieum.dodam.schedule.command.application.MedicationSeriesService recurring;
+    @Autowired com.ieum.dodam.schedule.domain.repository.MedicationSeriesRepository series;
     @Autowired com.ieum.dodam.schedule.command.application.ScheduleReminderService reminders;
 
     @Autowired
@@ -98,6 +100,41 @@ class CalendarApiIntegrationTest {
         ReflectionTestUtils.setField(candidate, "approvalStatus", ActionItemApprovalStatus.PENDING);
         ReflectionTestUtils.setField(candidate, "createdAt", Instant.now());
         actions.saveAndFlush(candidate);
+    }
+
+    @Test
+    void recurringQueryMaterializesMonthAndRejectsOversizedRange() throws Exception {
+        var start = LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(1)
+                .atTime(9, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant();
+        recurring.create(owner, patientId, UUID.randomUUID(), "반복 복약", null,
+                start, "Asia/Seoul", null);
+        var from = start.plusSeconds(100L * 86400);
+        mvc.perform(get("/api/schedules").header("Authorization", "Bearer " + token)
+                .param("patientId", patientId.toString()).param("from", from.toString())
+                .param("to", from.plusSeconds(30L * 86400).toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(30));
+        var count = schedules.count();
+        mvc.perform(get("/api/schedules").header("Authorization", "Bearer " + token)
+                .param("patientId", patientId.toString()).param("from", from.toString())
+                .param("to", from.plusSeconds(93L * 86400).toString()))
+                .andExpect(status().isBadRequest());
+        assertThat(schedules.count()).isEqualTo(count);
+    }
+
+    @Test
+    void replenishmentQuerySkipsFinishedAndAlreadyCoveredRules() {
+        var zone = ZoneId.of("Asia/Seoul");
+        var day = LocalDate.now(zone).plusDays(1);
+        var start = day.atTime(9, 0).atZone(zone).toInstant();
+        var finite = recurring.create(owner, patientId, UUID.randomUUID(), "유한 복약", null,
+                start, zone.getId(), day.plusDays(2));
+        var endless = recurring.create(owner, patientId, UUID.randomUUID(), "계속 복약", null,
+                start, zone.getId(), null);
+        assertThat(series.dueIds(day.plusDays(31))).doesNotContain(finite.getId(), endless.getId());
+        assertThat(series.dueIds(day.plusDays(40))).contains(endless.getId()).doesNotContain(finite.getId());
+        recurring.stop(owner, finite.getId());
+        assertThat(schedules.findAll()).filteredOn(s -> finite.getId().equals(s.getSeriesId()))
+                .allSatisfy(s -> assertThat(s.getStatus()).isEqualTo("CANCELLED"));
     }
 
     @Test

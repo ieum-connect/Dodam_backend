@@ -52,9 +52,11 @@ public class CalendarService {
         return actions.findForPatient(access.requirePatient(actor, patientId));
     }
 
+    // Listing materializes recurring occurrences, so this must remain a write transaction.
+    @Transactional(readOnly = false)
     public List<Schedule> list(User actor, UUID patientId, Instant from, Instant to) {
         access.requirePatient(actor, patientId);
-        if (!from.isBefore(to) || to.isAfter(from.plusSeconds(370L * 86400))) throw invalid();
+        if (!from.isBefore(to) || to.isAfter(from.plusSeconds(92L * 86400))) throw invalid();
         recurring.ensureRange(patientId,from,to);
         return schedules
                 .findByPatientIdAndStartsAtGreaterThanEqualAndStartsAtLessThanOrderByStartsAtAsc(

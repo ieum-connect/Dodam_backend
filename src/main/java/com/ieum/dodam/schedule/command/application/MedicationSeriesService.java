@@ -34,7 +34,8 @@ public class MedicationSeriesService {
                 throw new BusinessException(GlobalErrorCode.CONFLICT);
             return s;
         }
-        series.saveAndFlush(desired);
+        // Assigned UUIDs may be merged; advance the managed instance returned by save.
+        desired=series.saveAndFlush(desired);
         materialize(desired,start,start.plusDays(31));
         desired.advance(start.plusDays(32));
         return desired;
@@ -42,7 +43,10 @@ public class MedicationSeriesService {
     @Transactional(readOnly=true)
     public List<MedicationSeries> list(User actor,UUID patientId) { access.requirePatient(actor,patientId); return series.findByPatientIdOrderByStartDateDesc(patientId); }
     public void ensureRange(UUID patientId,Instant from,Instant to) {
+        if (from == null || to == null || !from.isBefore(to)
+                || to.isAfter(from.plusSeconds(92L * 86400))) throw invalid();
         for(var item:series.findByPatientIdOrderByStartDateDesc(patientId)) {
+            if (!item.isActive()) continue;
             var s=series.lockById(item.getId()).orElseThrow();
             var zone=ZoneId.of(s.getTimeZone());
             materialize(s,from.atZone(zone).toLocalDate(),to.minusNanos(1).atZone(zone).toLocalDate());
@@ -53,7 +57,7 @@ public class MedicationSeriesService {
         var s=series.lockById(id).orElseThrow();
         LocalDate through=now.atZone(ZoneId.of(s.getTimeZone())).toLocalDate().plusDays(31);
         if(s.getNextDate().isAfter(through) || !s.isActive() || (s.getEndDate()!=null && s.getNextDate().isAfter(s.getEndDate()))) return;
-        LocalDate end=s.getNextDate().plusDays(365);
+        LocalDate end=s.getNextDate().plusDays(91);
         if(end.isAfter(through)) end=through;
         materialize(s,s.getNextDate(),end); s.advance(end.plusDays(1));
     }

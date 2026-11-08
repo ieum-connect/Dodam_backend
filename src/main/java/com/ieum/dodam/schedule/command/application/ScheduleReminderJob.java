@@ -14,6 +14,7 @@ import java.time.Instant;
         havingValue = "true",
         matchIfMissing = true)
 public class ScheduleReminderJob {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ScheduleReminderJob.class);
     private final ScheduleReminderService reminders;
 
     private final MedicationSeriesService recurring;
@@ -25,7 +26,20 @@ public class ScheduleReminderJob {
     @Scheduled(fixedDelayString = "${dodam.schedule.reminder-delay-ms:15000}", initialDelay = 15000)
     public void run() {
         var now=Instant.now();
-        for(var id:series.activeIds()) recurring.replenish(id,now);
-        reminders.deliverDue(now);
+        try {
+            // UTC+14 is the earliest next local day; replenish checks each rule's own zone.
+            var through = now.atOffset(java.time.ZoneOffset.ofHours(14)).toLocalDate().plusDays(31);
+            for (var id : series.dueIds(through)) {
+                try {
+                    recurring.replenish(id, now);
+                } catch (RuntimeException exception) {
+                    log.error("Medication replenishment failed for series {}", id, exception);
+                }
+            }
+        } catch (RuntimeException exception) {
+            log.error("Could not query medication series for replenishment", exception);
+        } finally {
+            reminders.deliverDue(now);
+        }
     }
 }

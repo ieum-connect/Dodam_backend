@@ -172,7 +172,7 @@
 - `GET /api/action-items?patientId={id}`: 접근 가능한 아이의 원본 문서가 남아 있는 후보를 조회합니다. 응답 필드는 `id`, `documentId`, `type`, `title`, `description`, `dueAt`, `approvalStatus`입니다. `approvalStatus=PENDING`이 승인 대기 상태입니다.
 - `POST /api/action-items/{id}/approve`: 선택적으로 `{"startsAt":"2026-12-03T00:00:00Z"}`를 전달합니다. 시간이 없으면 후보의 `dueAt`을 사용하며, 둘 다 없으면 400을 반환합니다. 승인과 일정 생성은 하나의 트랜잭션으로 처리하며 반복 승인은 기존 일정을 반환합니다.
 - `POST /api/action-items/{id}/reject`: 후보를 거절하며 일정은 생성하지 않습니다. 반복 거절도 204를 반환합니다. 거절·취소된 후보를 승인하거나 승인된 후보를 거절하면 409를 반환합니다.
-- `GET /api/schedules?patientId={id}&from={ISO시각}&to={ISO시각}`: 시작 시각을 기준으로 `from` 이상, `to` 미만의 일정을 조회합니다. 조회 범위는 최대 370일입니다.
+- `GET /api/schedules?patientId={id}&from={ISO시각}&to={ISO시각}`: 시작 시각을 기준으로 `from` 이상, `to` 미만의 일정을 조회합니다. 조회 범위는 최대 92일이며 초과 요청은 400으로 거절합니다. 반복 복약의 해당 구간을 저장하는 쓰기 트랜잭션입니다. 더 긴 기간은 나누어 조회합니다.
 - `POST /api/schedules`: `patientId`, `title`(최대 200자), `scheduleType`, `startsAt`을 전달해 직접 등록합니다. 종류는 `MEDICATION`, `REVISIT`, `TEST`, `PERSONAL`, `OTHER`입니다.
 
 현재 사용자의 본인 프로필 또는 ACTIVE 가족 관계가 있어야 조회·승인·등록할 수 있습니다. 시각은 시간대가 포함된 ISO 8601 형식으로 전달하며 화면은 사용자 기기의 현지 시각으로 표시합니다. 직접 등록한 일정의 `actionItemId`는 null입니다. 후보 한 건에서 생성되는 일정은 DB 유일 제약과 후보 행 잠금으로 한 건만 허용합니다. 원본 문서 삭제 후 승인 전 후보는 기존 삭제 이벤트에 의해 취소되고, 이미 승인한 일정은 보존됩니다. 접근 권한이 있으면 원본 삭제 후에도 이미 처리한 승인·거절의 재요청에 기존 결과를 반환합니다.

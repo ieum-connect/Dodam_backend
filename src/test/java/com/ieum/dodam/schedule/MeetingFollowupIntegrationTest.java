@@ -46,7 +46,7 @@ class MeetingFollowupIntegrationTest {
   recurring.replenish(id,start().plusSeconds(60L*86400));
   assertThat(schedules.occurrenceDates(id,today(),today().plusYears(5))).hasSize(92);
   var row=schedules.findByPatientIdAndStartsAtGreaterThanEqualAndStartsAtLessThanOrderByStartsAtAsc(patient,start(),start().plusSeconds(86400)).get(0);row.finish(true);schedules.flush();
-  recurring.stop(owner,id); recurring.ensureRange(patient,start(),today().plusYears(1).atStartOfDay(zone).toInstant());
+  recurring.stop(owner,id); recurring.ensureRange(patient,start(),today().plusDays(90).atStartOfDay(zone).toInstant());
   assertThat(row.getStatus()).isEqualTo("COMPLETED");
   assertThat(schedules.occurrenceDates(id,today(),today().plusYears(5))).hasSize(92);
   assertThat(schedules.findByPatientIdAndStartsAtGreaterThanEqualAndStartsAtLessThanOrderByStartsAtAsc(patient,Instant.now().plusSeconds(86400),start().plusSeconds(100L*86400))).allMatch(s->s.getStatus().equals("CANCELLED"));
