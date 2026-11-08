@@ -33,7 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
 import java.util.UUID;
 
-@SpringBootTest
+@SpringBootTest(properties = "dodam.schedule.reminders-enabled=false")
 @AutoConfigureMockMvc
 @Transactional
 class CalendarApiIntegrationTest {
@@ -45,6 +45,13 @@ class CalendarApiIntegrationTest {
     @Autowired MedicalDocumentRepository documents;
     @Autowired ActionItemRepository actions;
     @Autowired ScheduleRepository schedules;
+    @Autowired com.ieum.dodam.schedule.command.application.MedicationSeriesService recurring;
+    @Autowired com.ieum.dodam.schedule.domain.repository.MedicationSeriesRepository series;
+    @Autowired com.ieum.dodam.schedule.command.application.ScheduleReminderService reminders;
+
+    @Autowired
+    com.ieum.dodam.notification.domain.repository.SystemNotificationRepository notifications;
+
     @Autowired EntityManager em;
     @Autowired ApplicationEventPublisher events;
     @Autowired com.ieum.dodam.care_relation.command.application.CareRelationCommandService cares;
@@ -93,6 +100,166 @@ class CalendarApiIntegrationTest {
         ReflectionTestUtils.setField(candidate, "approvalStatus", ActionItemApprovalStatus.PENDING);
         ReflectionTestUtils.setField(candidate, "createdAt", Instant.now());
         actions.saveAndFlush(candidate);
+    }
+
+    @Test
+    void recurringQueryMaterializesMonthAndRejectsOversizedRange() throws Exception {
+        var start = LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(1)
+                .atTime(9, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant();
+        recurring.create(owner, patientId, UUID.randomUUID(), "반복 복약", null,
+                start, "Asia/Seoul", null);
+        var from = start.plusSeconds(100L * 86400);
+        mvc.perform(get("/api/schedules").header("Authorization", "Bearer " + token)
+                .param("patientId", patientId.toString()).param("from", from.toString())
+                .param("to", from.plusSeconds(30L * 86400).toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(30));
+        var count = schedules.count();
+        mvc.perform(get("/api/schedules").header("Authorization", "Bearer " + token)
+                .param("patientId", patientId.toString()).param("from", from.toString())
+                .param("to", from.plusSeconds(93L * 86400).toString()))
+                .andExpect(status().isBadRequest());
+        assertThat(schedules.count()).isEqualTo(count);
+    }
+
+    @Test
+    void replenishmentQuerySkipsFinishedAndAlreadyCoveredRules() {
+        var zone = ZoneId.of("Asia/Seoul");
+        var day = LocalDate.now(zone).plusDays(1);
+        var start = day.atTime(9, 0).atZone(zone).toInstant();
+        var finite = recurring.create(owner, patientId, UUID.randomUUID(), "유한 복약", null,
+                start, zone.getId(), day.plusDays(2));
+        var endless = recurring.create(owner, patientId, UUID.randomUUID(), "계속 복약", null,
+                start, zone.getId(), null);
+        assertThat(series.dueIds(day.plusDays(31))).doesNotContain(finite.getId(), endless.getId());
+        assertThat(series.dueIds(day.plusDays(40))).contains(endless.getId()).doesNotContain(finite.getId());
+        recurring.stop(owner, finite.getId());
+        assertThat(schedules.findAll()).filteredOn(s -> finite.getId().equals(s.getSeriesId()))
+                .allSatisfy(s -> assertThat(s.getStatus()).isEqualTo("CANCELLED"));
+    }
+
+    @Test
+    void dailyMedicationRetriesAreIdempotentAndTerminalSchedulesDoNotNotify() throws Exception {
+        UUID requestId = UUID.randomUUID();
+        Instant start =
+                Instant.now().minusSeconds(60).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        String body =
+                "{\"patientId\":\""
+                        + patientId
+                        + "\",\"requestId\":\""
+                        + requestId
+                        + "\",\"title\":\"비타민 D\",\"scheduleType\":\"MEDICATION\",\"startsAt\":\""
+                        + start
+                        + "\",\"notes\":\"안내받은 용량"
+                        + " 메모\",\"repeatDays\":3,\"timeZone\":\"Asia/Seoul\"}";
+        for (int i = 0; i < 2; i++) {
+            mvc.perform(
+                            post("/api/schedule-batches")
+                                    .header("Authorization", "Bearer " + token)
+                                    .contentType("application/json")
+                                    .content(body))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(3));
+        }
+        var rows = schedules.findByBatchIdOrderByStartsAtAsc(requestId);
+        assertThat(rows).hasSize(3);
+        assertThat(rows.get(1).getStartsAt()).isEqualTo(start.plusSeconds(86400));
+        mvc.perform(
+                        post("/api/schedule-batches")
+                                .header("Authorization", "Bearer " + token)
+                                .contentType("application/json")
+                                .content(body.replace("비타민 D", "다른 약")))
+                .andExpect(status().isConflict());
+        mvc.perform(
+                        post("/api/schedules/" + rows.get(1).getId() + "/complete")
+                                .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        mvc.perform(
+                        delete("/api/schedules/" + rows.get(2).getId())
+                                .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        reminders.deliverDue(start.plusSeconds(3 * 86400));
+        reminders.deliverDue(start.plusSeconds(3 * 86400));
+        assertThat(notifications.findByRecipientUserIdAndReadAtIsNull(owner.getId()))
+                .filteredOn(
+                        n ->
+                                n.getType()
+                                        == com.ieum.dodam.notification.domain.SystemActivityType
+                                                .SCHEDULE_DUE)
+                .hasSize(1)
+                .allSatisfy(n -> {
+                    assertThat(n.getMessage()).contains("비타민 D", "복용 여부", "월", "일");
+                    assertThat(n.getPath()).contains("patientId=" + patientId, "date=" + start);
+                });
+    }
+
+    @Test
+    void scheduleUpdatesCheckVersionAndReminderOnlyFollowsCurrentTime() throws Exception {
+        Instant now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        var row =
+                schedules.saveAndFlush(
+                        com.ieum.dodam.schedule.domain.Schedule.create(
+                                patientId,
+                                null,
+                                com.ieum.dodam.schedule.domain.ScheduleType.TEST,
+                                "검진",
+                                now.minusSeconds(60)));
+        String body =
+                "{\"version\":0,\"title\":\"변경한 검진\",\"scheduleType\":\"TEST\",\"startsAt\":\""
+                        + now.plusSeconds(3600)
+                        + "\"}";
+        String path = "/api/schedules/" + row.getId();
+        mvc.perform(
+                        put(path)
+                                .header("Authorization", "Bearer " + token)
+                                .contentType("application/json")
+                                .content(body))
+                .andExpect(status().isOk());
+        mvc.perform(
+                        put(path)
+                                .header("Authorization", "Bearer " + token)
+                                .contentType("application/json")
+                                .content(body))
+                .andExpect(status().isConflict());
+        reminders.deliverDue(now);
+        assertThat(schedules.findById(row.getId()).orElseThrow().getRemindedAt()).isNull();
+        reminders.deliverDue(now.plusSeconds(3601));
+        assertThat(schedules.findById(row.getId()).orElseThrow().getRemindedAt()).isNotNull();
+    }
+
+    @Test
+    void revokedGuardianCannotChangeScheduleOrReceiveItsReminder() throws Exception {
+        var guardian =
+                accounts.chooseRole(
+                        accounts.loginOrRegister(UUID.randomUUID().toString(), "테스트 보호자")
+                                .getKakaoId(),
+                        UserRole.CAREGIVER);
+        var relation = cares.request(guardian, accounts.patientInviteCode(owner));
+        cares.accept(owner, relation.getId());
+        cares.revoke(owner, relation.getId());
+        var row =
+                schedules.saveAndFlush(
+                        com.ieum.dodam.schedule.domain.Schedule.create(
+                                patientId,
+                                null,
+                                com.ieum.dodam.schedule.domain.ScheduleType.MEDICATION,
+                                "테스트 복약",
+                                Instant.now().minusSeconds(1)));
+        String guardianToken = jwt.create(guardian);
+        mvc.perform(
+                        post("/api/schedules/" + row.getId() + "/complete")
+                                .header("Authorization", "Bearer " + guardianToken))
+                .andExpect(status().isForbidden());
+        mvc.perform(
+                        delete("/api/schedules/" + row.getId())
+                                .header("Authorization", "Bearer " + guardianToken))
+                .andExpect(status().isForbidden());
+        reminders.deliverDue(Instant.now());
+        assertThat(notifications.findByRecipientUserIdAndReadAtIsNull(guardian.getId()))
+                .noneMatch(
+                        n ->
+                                n.getType()
+                                        == com.ieum.dodam.notification.domain.SystemActivityType
+                                                .SCHEDULE_DUE);
     }
 
     @Test
