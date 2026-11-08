@@ -75,6 +75,24 @@ class GrowthApiIntegrationTest {
     }
 
     @Test
+    void missingAndDeletedRecordsReturnCommonNotFoundResponse() throws Exception {
+        for (String id : List.of(UUID.randomUUID().toString(), create("2026-10-02"))) {
+            if (!id.isBlank()) {
+                // Missing IDs and already removed IDs use the same error envelope.
+                var existing = mvc.perform(delete("/api/growth-records/" + id)
+                        .param("version", "0").header("Authorization", "Bearer " + token));
+                int result = existing.andReturn().getResponse().getStatus();
+                org.assertj.core.api.Assertions.assertThat(result).isIn(204, 404);
+            }
+            mvc.perform(delete("/api/growth-records/" + id).param("version", "0")
+                    .header("Authorization", "Bearer " + token))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("GROWTH_001"))
+                    .andExpect(jsonPath("$.message").value("성장 기록을 찾을 수 없어요."));
+        }
+    }
+
+    @Test
     void createsListsEditsAndSoftDeletesWithConflictProtection() throws Exception {
         String id = create("2026-10-01");
         create("2026-09-01");

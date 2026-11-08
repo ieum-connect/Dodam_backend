@@ -8,11 +8,10 @@ import com.ieum.dodam.health_record.domain.HealthRecordAccessPolicy;
 import com.ieum.dodam.patient.domain.repository.PatientRepository;
 import com.ieum.dodam.user.domain.User;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import com.ieum.dodam.growth.error.GrowthErrorCode;
 
 import java.time.*;
 import java.util.*;
@@ -84,8 +83,7 @@ public class GrowthService {
         return records.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(
                         () ->
-                                new ResponseStatusException(
-                                        HttpStatus.NOT_FOUND, "성장 기록을 찾을 수 없어요."));
+                                new BusinessException(GrowthErrorCode.RECORD_NOT_FOUND));
     }
 
     private void lock(UUID patientId) {
