@@ -172,11 +172,34 @@
 - `GET /api/action-items?patientId={id}`: 접근 가능한 아이의 원본 문서가 남아 있는 후보를 조회합니다. 응답 필드는 `id`, `documentId`, `type`, `title`, `description`, `dueAt`, `approvalStatus`입니다. `approvalStatus=PENDING`이 승인 대기 상태입니다.
 - `POST /api/action-items/{id}/approve`: 선택적으로 `{"startsAt":"2026-12-03T00:00:00Z"}`를 전달합니다. 시간이 없으면 후보의 `dueAt`을 사용하며, 둘 다 없으면 400을 반환합니다. 승인과 일정 생성은 하나의 트랜잭션으로 처리하며 반복 승인은 기존 일정을 반환합니다.
 - `POST /api/action-items/{id}/reject`: 후보를 거절하며 일정은 생성하지 않습니다. 반복 거절도 204를 반환합니다. 거절·취소된 후보를 승인하거나 승인된 후보를 거절하면 409를 반환합니다.
-- `GET /api/schedules?patientId={id}&from={ISO시각}&to={ISO시각}`: 시작 시각을 기준으로 `from` 이상, `to` 미만의 일정을 조회합니다. 조회 범위는 최대 370일입니다.
+- `GET /api/schedules?patientId={id}&from={ISO시각}&to={ISO시각}`: 시작 시각을 기준으로 `from` 이상, `to` 미만의 일정을 조회합니다. 조회 범위는 최대 92일이며 초과 요청은 400으로 거절합니다. 반복 복약의 해당 구간을 저장하는 쓰기 트랜잭션입니다. 더 긴 기간은 나누어 조회합니다.
 - `POST /api/schedules`: `patientId`, `title`(최대 200자), `scheduleType`, `startsAt`을 전달해 직접 등록합니다. 종류는 `MEDICATION`, `REVISIT`, `TEST`, `PERSONAL`, `OTHER`입니다.
 
 현재 사용자의 본인 프로필 또는 ACTIVE 가족 관계가 있어야 조회·승인·등록할 수 있습니다. 시각은 시간대가 포함된 ISO 8601 형식으로 전달하며 화면은 사용자 기기의 현지 시각으로 표시합니다. 직접 등록한 일정의 `actionItemId`는 null입니다. 후보 한 건에서 생성되는 일정은 DB 유일 제약과 후보 행 잠금으로 한 건만 허용합니다. 원본 문서 삭제 후 승인 전 후보는 기존 삭제 이벤트에 의해 취소되고, 이미 승인한 일정은 보존됩니다. 접근 권한이 있으면 원본 삭제 후에도 이미 처리한 승인·거절의 재요청에 기존 결과를 반환합니다.
 
-업로드 후 AI 서버의 `POST /internal/documents/{documentId}/analyze`로 분석을 요청합니다. AI 서버는 원본을 읽어 추출한 일정·복약·주의 항목을 문서와 연결된 `action_items`의 승인 대기 후보로 저장합니다. 문서 상태 완료와 후보 저장은 AI 서버의 같은 트랜잭션으로 처리합니다. 문서에 명시된 날짜·시간만 사용하며 날짜가 불명확하면 `due_at=null`로 남겨 보호자가 입력합니다. 승인 없이 `schedules`를 생성하지 않습니다. 반복 복약 일정과 예약 알림 발송은 이 변경의 범위에 포함하지 않습니다.
+업로드 후 AI 서버의 `POST /internal/documents/{documentId}/analyze`로 분석을 요청합니다. AI 서버는 원본을 읽어 추출한 일정·복약·주의 항목을 문서와 연결된 `action_items`의 승인 대기 후보로 저장합니다. 문서 상태 완료와 후보 저장은 AI 서버의 같은 트랜잭션으로 처리합니다. 문서에 명시된 날짜·시간만 사용하며 날짜가 불명확하면 `due_at=null`로 남겨 보호자가 입력합니다. 승인 없이 `schedules`를 생성하지 않습니다. 반복 복약 일정과 앱 내 일정 알림은 아래 API로 관리합니다.
 
 일반 실행은 실제 AI 키와 모델 설정을 사용하는 AI 서버(`uvicorn app.main:app`)를 연결합니다. 키가 없는 로컬 연동 검증에서는 AI 저장소의 `python -m tests.manual_contract_server`가 고정 모델 응답을 반환하며, 이 실행은 실제 AI 판독 검증이 아닙니다. 테스트 화면은 `VITE_AI_TEST_MODE=true`로 예시 응답 표시를 켭니다. 두 서버는 동일한 도담 DB와 `STORAGE_LOCAL_ROOT`를 사용하고 `AI_INTERNAL_TOKEN`이 일치해야 합니다.
+
+### 반복 복약과 일정 알림
+
+- `POST /api/schedule-batches`: `patientId`, 클라이언트 UUID `requestId`, `title`, `scheduleType`, `startsAt`, `notes`(선택, 최대 500자), `repeatDays`(1~31), `timeZone`(예: `Asia/Seoul`)을 받습니다. 2일 이상 반복은 MEDICATION만 허용하며 현지 시각을 유지해 매일 생성합니다. 같은 요청 ID와 내용의 재시도는 기존 일정을 반환하고, 내용이 바뀌면 409를 반환합니다.
+- `PUT /api/schedules/{id}`: 조회한 `version`과 `title`, `scheduleType`, `startsAt`, `notes`로 선택한 날짜의 예정 일정을 수정합니다. 다른 요청이 먼저 변경했거나 완료·취소된 경우 409입니다.
+- `POST /api/schedules/{id}/complete`: 예정 일정을 완료합니다.
+- `DELETE /api/schedules/{id}`: 예정 일정을 취소 상태로 보존합니다. 동일한 완료·취소의 재요청은 기존 결과를 반환합니다.
+
+모든 변경에는 기존 아이 접근 권한을 적용합니다. 서버는 기본 15초마다 시간이 지난 예정 일정을 최대 100건 처리하고, 활성 소유자·연결 보호자에게 `SCHEDULE_DUE` 앱 내 알림을 저장합니다. 일정 행 잠금과 알림 처리 시각을 같은 트랜잭션으로 저장하여 중복 발송을 방지합니다. 완료·취소한 일정은 제외하고, 시작 시각을 변경하면 새 시각에 다시 알립니다. 마이그레이션 이전에 이미 지난 일정에는 소급 알림을 보내지 않습니다.
+
+`DODAM_SCHEDULE_REMINDERS_ENABLED=false`로 자동 처리를 끌 수 있고 `DODAM_SCHEDULE_REMINDER_DELAY_MS`로 주기를 변경합니다. 운영체제 푸시·문자 발송은 포함하지 않습니다. 이 API와 알림 검증에는 AI 키가 필요하지 않습니다.
+
+
+### 종료일 지정·무기한 반복 및 메모 태그
+
+- `POST /api/medication-series`: `patientId`, `requestId`(UUID), `title`, `notes`, `startsAt`, `timeZone`, `endDate`를 받습니다. `endDate=null`은 종료 없는 매일 반복입니다. 종료일은 포함하며 신규 시작일은 오늘 이후입니다.
+- `GET /api/medication-series?patientId={id}`: 반복 규칙을 조회합니다.
+- `POST /api/medication-series/{id}/stop`: 앞으로의 미완료 일정만 취소하고 반복을 중단합니다. 지난 일정과 완료 기록은 보존합니다. 이미 취소한 날짜를 다시 생성하지 않습니다.
+- 신규 화면은 규칙 API를 사용하므로 31일 기간 제한이 없습니다. 기존 batch API의 1~31일 제한은 구버전 호환용입니다. 규칙 전체 수정은 중단 후 재등록으로 처리하며 하루 한 시각을 지원합니다.
+- 무기한 일정을 한 번에 생성하지 않습니다. 최초 32일, 이후 조회 구간 및 주기 작업에서 필요한 구간만 생성합니다. 규칙 행 잠금과 날짜별 유일 제약으로 중복을 방지합니다.
+- `GET/POST /api/memo-tags`, `PUT/DELETE /api/memo-tags/{id}`: 아이별 가족 공용 태그를 조회·생성·수정·삭제합니다. 수정과 삭제는 조회한 `version`을 사용하며 삭제 버전은 query parameter입니다.
+- 메모 저장의 `tagIds`는 최대 10개입니다. 다른 아이의 태그는 연결할 수 없습니다. 태그 이름은 1~20자이며 아이별 중복을 허용하지 않습니다. 태그 삭제는 연결만 해제하고 메모 본문은 보존합니다.
+- 테스트 설정에는 AI 주소와 토큰을 빈 값으로 명시해 실제 모델 없이 전체 테스트를 실행합니다.

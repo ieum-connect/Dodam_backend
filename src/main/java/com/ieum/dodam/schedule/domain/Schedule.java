@@ -42,6 +42,43 @@ public class Schedule {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(length = 500)
+    private String notes;
+
+    private UUID seriesId;
+    private java.time.LocalDate occurrenceDate;
+    public void assignSeries(UUID id, java.time.LocalDate day) { seriesId=id; occurrenceDate=day; }
+
+    @Column(name = "batch_id")
+    private UUID batchId;
+
+    public void assignBatch(UUID batchId) {
+        this.batchId = batchId;
+    }
+
+    @Column(name = "reminded_at")
+    private Instant remindedAt;
+
+    @Version private long version;
+
+    public void update(String title, ScheduleType type, Instant startsAt, String notes) {
+        this.title = title;
+        this.scheduleType = type;
+        if (!this.startsAt.equals(startsAt)) remindedAt = null;
+        this.startsAt = startsAt;
+        this.notes = notes;
+        updatedAt = Instant.now();
+    }
+
+    public void finish(boolean completed) {
+        status = completed ? "COMPLETED" : "CANCELLED";
+        updatedAt = Instant.now();
+    }
+
+    public void markReminded(Instant now) {
+        remindedAt = now;
+    }
+
     public static Schedule create(
             UUID patientId, UUID actionItemId, ScheduleType type, String title, Instant startsAt) {
         var row = new Schedule();
