@@ -181,6 +181,10 @@
 
 일반 실행은 실제 AI 키와 모델 설정을 사용하는 AI 서버(`uvicorn app.main:app`)를 연결합니다. 키가 없는 로컬 연동 검증에서는 AI 저장소의 `python -m tests.manual_contract_server`가 고정 모델 응답을 반환하며, 이 실행은 실제 AI 판독 검증이 아닙니다. 테스트 화면은 `VITE_AI_TEST_MODE=true`로 예시 응답 표시를 켭니다. 두 서버는 동일한 도담 DB와 `STORAGE_LOCAL_ROOT`를 사용하고 `AI_INTERNAL_TOKEN`이 일치해야 합니다.
 
+### 성장 기록 검증 범위
+- `NUMERIC(4,1)`은 저장 정밀도(최대 999.9)이며 서비스 허용 상한이 아닙니다.
+- 실제 허용 범위는 요청 DTO와 DB CHECK 모두 키 0.1~300.0cm, 몸무게 0.1~500.0kg입니다.
+- 상한 변경 시 DTO, 엔티티 정밀도, DB CHECK를 함께 검토하고 새 마이그레이션으로 변경합니다.
 ### 반복 복약과 일정 알림
 
 - `POST /api/schedule-batches`: `patientId`, 클라이언트 UUID `requestId`, `title`, `scheduleType`, `startsAt`, `notes`(선택, 최대 500자), `repeatDays`(1~31), `timeZone`(예: `Asia/Seoul`)을 받습니다. 2일 이상 반복은 MEDICATION만 허용하며 현지 시각을 유지해 매일 생성합니다. 같은 요청 ID와 내용의 재시도는 기존 일정을 반환하고, 내용이 바뀌면 409를 반환합니다.
