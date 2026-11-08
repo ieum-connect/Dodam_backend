@@ -181,6 +181,11 @@
 
 일반 실행은 실제 AI 키와 모델 설정을 사용하는 AI 서버(`uvicorn app.main:app`)를 연결합니다. 키가 없는 로컬 연동 검증에서는 AI 저장소의 `python -m tests.manual_contract_server`가 고정 모델 응답을 반환하며, 이 실행은 실제 AI 판독 검증이 아닙니다. 테스트 화면은 `VITE_AI_TEST_MODE=true`로 예시 응답 표시를 켭니다. 두 서버는 동일한 도담 DB와 `STORAGE_LOCAL_ROOT`를 사용하고 `AI_INTERNAL_TOKEN`이 일치해야 합니다.
 
+### 운영 인증 쿠키와 프록시
+- 도담 Compose 배포는 동일 출처에서 프런트 화면과 `/api/`, `/oauth2/`, `/login/oauth2/`, `/logout`을 제공합니다.
+- 인프라 저장소 `nginx/snippets/app.conf`와 `proxy.conf`에서 인증·API 요청을 백엔드로 전달하므로 현재 `SameSite=Lax`를 유지합니다.
+- 운영 HTTPS에서는 `JWT_COOKIE_SECURE=true`로 설정합니다. 현재 문서는 실제 Kakao 로그인 검증 완료를 뜻하지 않습니다.
+- 추후 서로 다른 사이트에 배포할 경우 `SameSite=None; Secure`, CORS 및 CSRF 방어를 함께 설계·검증해야 합니다.
 ### 성장 기록 검증 범위
 - `NUMERIC(4,1)`은 저장 정밀도(최대 999.9)이며 서비스 허용 상한이 아닙니다.
 - 실제 허용 범위는 요청 DTO와 DB CHECK 모두 키 0.1~300.0cm, 몸무게 0.1~500.0kg입니다.
