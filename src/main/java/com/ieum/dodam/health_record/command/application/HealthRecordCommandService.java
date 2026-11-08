@@ -46,7 +46,12 @@ public class HealthRecordCommandService {
 
     public HealthRecord create(
             User actor, UUID patientId, String body, UUID visitId, Instant recordedAt) {
+        return create(actor,patientId,body,visitId,recordedAt,null);
+    }
+
+    public HealthRecord create(User actor,UUID patientId,String body,UUID visitId,Instant recordedAt,java.util.Set<UUID> tagIds) {
         UUID target = access.requirePatient(actor, patientId);
+        validateTags(target,tagIds);
         validateBody(body);
         validateVisit(target, visitId);
         HealthRecord saved =
@@ -58,6 +63,7 @@ public class HealthRecordCommandService {
                                 body,
                                 actor.getRole() == UserRole.CAREGIVER,
                                 recordedAt));
+        if(tagIds!=null) saved.replaceTags(tagIds);
         if (actor.getRole() == UserRole.CAREGIVER) {
             events.publishEvent(
                     new SystemActivityEvent(
@@ -82,13 +88,19 @@ public class HealthRecordCommandService {
 
     public HealthRecord update(
             User actor, UUID id, UUID patientId, String body, UUID visitId, Instant recordedAt) {
+        return update(actor,id,patientId,body,visitId,recordedAt,null);
+    }
+
+    public HealthRecord update(User actor,UUID id,UUID patientId,String body,UUID visitId,Instant recordedAt,java.util.Set<UUID> tagIds) {
         HealthRecord record = requireWritable(actor, id);
+        validateTags(record.getPatientId(),tagIds);
         if (patientId != null && !patientId.equals(record.getPatientId())) {
             throw new BusinessException(GlobalErrorCode.INVALID_REQUEST);
         }
         validateBody(body);
         validateVisit(record.getPatientId(), visitId);
         record.update(body, visitId, recordedAt);
+        if(tagIds!=null) record.replaceTags(tagIds);
         return record;
     }
 
@@ -104,6 +116,16 @@ public class HealthRecordCommandService {
         access.requirePatient(actor, record.getPatientId());
         // 본인 또는 ACTIVE 보호자임을 확인한 뒤 작성자와 무관하게 관리한다.
         return record;
+    }
+
+    private void validateTags(UUID patientId,java.util.Set<UUID> ids) {
+        if(ids==null)return;
+        if(ids.size()>10)throw new BusinessException(GlobalErrorCode.INVALID_REQUEST);
+        jdbc.queryForObject("select id from patients where id=? for update",UUID.class,patientId);
+        for(UUID id:ids) {
+            Integer count=jdbc.queryForObject("select count(*) from memo_tags where id=? and patient_id=? and deleted_at is null",Integer.class,id,patientId);
+            if(count==null || count!=1)throw new BusinessException(GlobalErrorCode.INVALID_REQUEST);
+        }
     }
 
     private void validateBody(String body) {

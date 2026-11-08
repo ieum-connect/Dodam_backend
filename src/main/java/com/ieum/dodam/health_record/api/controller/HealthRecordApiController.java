@@ -77,7 +77,7 @@ public class HealthRecordApiController {
                         request.patientId(),
                         request.body(),
                         request.visitId(),
-                        request.recordedAt());
+                        request.recordedAt(), request.tagIds());
         return mapper.toResponse(HealthRecordQueryService.view(record, actor.getName()));
     }
 
@@ -95,7 +95,7 @@ public class HealthRecordApiController {
                         request.patientId(),
                         request.body(),
                         request.visitId(),
-                        request.recordedAt());
+                        request.recordedAt(), request.tagIds());
         return mapper.toResponse(queries.detail(actor, record.getId()));
     }
 
