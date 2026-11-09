@@ -38,6 +38,63 @@ public class CalendarApiController {
 
     public record Decision(Instant startsAt) {}
 
+    public record BatchWrite(
+            @NotNull UUID patientId,
+            @NotNull UUID requestId,
+            @NotBlank @Size(max = 200) String title,
+            @NotNull ScheduleType scheduleType,
+            @NotNull Instant startsAt,
+            @Size(max = 500) String notes,
+            @Min(1) @Max(31) int repeatDays,
+            @NotBlank String timeZone) {}
+
+    public record Update(
+            @Min(0) long version,
+            @NotBlank @Size(max = 200) String title,
+            @NotNull ScheduleType scheduleType,
+            @NotNull Instant startsAt,
+            @Size(max = 500) String notes) {}
+
+    @PostMapping("/schedule-batches")
+    public List<Schedule> createBatch(
+            @AuthenticationPrincipal OAuth2User principal, @Valid @RequestBody BatchWrite body) {
+        return calendar.createBatch(
+                actor(principal),
+                body.patientId(),
+                body.requestId(),
+                body.title(),
+                body.scheduleType(),
+                body.startsAt(),
+                body.notes(),
+                body.repeatDays(),
+                body.timeZone());
+    }
+
+    @PutMapping("/schedules/{id}")
+    public Schedule update(
+            @AuthenticationPrincipal OAuth2User principal,
+            @PathVariable UUID id,
+            @Valid @RequestBody Update body) {
+        return calendar.update(
+                actor(principal),
+                id,
+                body.version(),
+                body.title(),
+                body.scheduleType(),
+                body.startsAt(),
+                body.notes());
+    }
+
+    @PostMapping("/schedules/{id}/complete")
+    public Schedule complete(@AuthenticationPrincipal OAuth2User principal, @PathVariable UUID id) {
+        return calendar.finish(actor(principal), id, true);
+    }
+
+    @DeleteMapping("/schedules/{id}")
+    public Schedule cancel(@AuthenticationPrincipal OAuth2User principal, @PathVariable UUID id) {
+        return calendar.finish(actor(principal), id, false);
+    }
+
     public record Candidate(
             UUID id,
             UUID documentId,
