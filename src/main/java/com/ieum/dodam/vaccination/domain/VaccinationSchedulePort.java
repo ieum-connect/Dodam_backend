@@ -10,7 +10,8 @@ public interface VaccinationSchedulePort {
 
     /**
      * 일정 계산 결과를 해석하지 않은 JSON 객체로 반환합니다.
-     * 모르는 차수가 섞이면 {@code BusinessException(UNKNOWN_DOSE)}, 그 밖의 실패는 {@code BusinessException(AI_UNAVAILABLE)}을 던집니다.
+     * 모르는 차수가 섞이면 {@link UnknownDoseException}(AI가 알려 준 차수 목록 포함, 없으면 빈 목록),
+     * 그 밖의 실패는 {@code BusinessException(AI_UNAVAILABLE)}을 던집니다.
      */
     JsonNode fetchSchedule(LocalDate birthDate, LocalDate asOf, List<String> completedDoses);
 }

@@ -23,6 +23,7 @@ import com.ieum.dodam.patient.domain.repository.PatientRepository;
 import com.ieum.dodam.user.command.application.UserAccountService;
 import com.ieum.dodam.user.domain.User;
 import com.ieum.dodam.user.domain.UserRole;
+import com.ieum.dodam.vaccination.domain.UnknownDoseException;
 import com.ieum.dodam.vaccination.domain.VaccinationSchedulePort;
 import com.ieum.dodam.vaccination.domain.entity.VaccinationDoseCheck;
 import com.ieum.dodam.vaccination.domain.repository.VaccinationDoseCheckRepository;
@@ -186,7 +187,7 @@ class VaccinationApiIntegrationTest {
         when(schedules.fetchSchedule(any(), any(), anyList())).thenAnswer(inv -> {
             List<String> doses = inv.getArgument(2);
             if (doses.contains("OLD-1")) {
-                throw new BusinessException(VaccinationErrorCode.UNKNOWN_DOSE);
+                throw new UnknownDoseException(List.of("OLD-1"));
             }
             return doses.isEmpty() ? schedule("DTAP-1") : JSON.readTree("{\"marker\":\"final\"}");
         });

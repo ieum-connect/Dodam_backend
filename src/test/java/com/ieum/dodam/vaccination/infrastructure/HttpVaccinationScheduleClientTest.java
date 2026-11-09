@@ -2,6 +2,7 @@ package com.ieum.dodam.vaccination.infrastructure;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.ieum.dodam.global.exception.BusinessException;
+import com.ieum.dodam.vaccination.domain.UnknownDoseException;
 import com.ieum.dodam.vaccination.error.VaccinationErrorCode;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -72,6 +73,34 @@ class HttpVaccinationScheduleClientTest {
         expectAndFail(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
                         .body("{\"code\":\"VACCINATION_002\",\"message\":\"x\"}"),
                 VaccinationErrorCode.UNKNOWN_DOSE);
+    }
+
+    @Test
+    void unknownDoseIdsAreReadFromErrorBody() {
+        assertUnknownDoseIds("{\"code\":\"VACCINATION_002\",\"unknownDoseIds\":[\"DTAP-9\",\"RV-7\"]}",
+                List.of("DTAP-9", "RV-7"));
+    }
+
+    @Test
+    void missingUnknownDoseIdsIsEmptyList() {
+        assertUnknownDoseIds("{\"code\":\"VACCINATION_002\"}", List.of());
+    }
+
+    @Test
+    void malformedUnknownDoseIdsIsEmptyOrTextOnly() {
+        assertUnknownDoseIds("{\"code\":\"VACCINATION_002\",\"unknownDoseIds\":\"RV-7\"}", List.of());
+        server.reset();
+        assertUnknownDoseIds("{\"code\":\"VACCINATION_002\",\"unknownDoseIds\":[\"RV-7\",3,null]}",
+                List.of("RV-7"));
+    }
+
+    private void assertUnknownDoseIds(String errorBody, List<String> expected) {
+        server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .contentType(MediaType.APPLICATION_JSON).body(errorBody));
+        assertThatThrownBy(() -> client.fetchSchedule(BIRTH, AS_OF, List.of("RV-7")))
+                .isInstanceOfSatisfying(UnknownDoseException.class,
+                        e -> assertThat(e.unknownDoseIds()).isEqualTo(expected));
+        server.verify();
     }
 
     @Test

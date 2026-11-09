@@ -7,6 +7,7 @@ import com.ieum.dodam.medical_document.query.application.CareRelationPermissionS
 import com.ieum.dodam.patient.domain.Patient;
 import com.ieum.dodam.patient.domain.repository.PatientRepository;
 import com.ieum.dodam.user.domain.User;
+import com.ieum.dodam.vaccination.domain.UnknownDoseException;
 import com.ieum.dodam.vaccination.domain.VaccinationSchedulePort;
 import com.ieum.dodam.vaccination.domain.repository.VaccinationDoseCheckRepository;
 import com.ieum.dodam.vaccination.error.VaccinationErrorCode;
@@ -20,6 +21,7 @@ import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 
 /**
@@ -53,26 +55,37 @@ public class VaccinationQueryService {
     }
 
     /**
-     * 권한 확인이 끝난 환자의 일정을 조회합니다. 저장된 체크 중 현재 일정에 없는 차수가 있으면
-     * (일정 버전 변경, 수동 데이터 등) 그 차수만 빼고 다시 조회합니다. 저장 데이터는 지우지 않습니다.
+     * 권한 확인이 끝난 환자의 일정을 조회합니다. AI가 모르는 차수(unknownDoseIds)를 알려 주면
+     * 그 차수만 빼고 한 번 다시 조회합니다. completedDoses를 비우지 않습니다: 비우면 AI가 만료 차수를
+     * 응답에서 빼서 정상 완료 기록까지 사라집니다. 저장 데이터는 지우지 않습니다.
      */
     public JsonNode scheduleOf(UUID patientId) {
         LocalDate birthDate = requireBirthDate(patientId);
         LocalDate today = LocalDate.now(SEOUL);
         List<String> completed = checks.findDoseIds(patientId);
+        UnknownDoseException unknown;
         try {
             return schedules.fetchSchedule(birthDate, today, completed);
-        } catch (BusinessException e) {
-            if (e.getErrorCode() != VaccinationErrorCode.UNKNOWN_DOSE) {
-                throw e;
-            }
+        } catch (UnknownDoseException e) {
+            unknown = e;
         }
-        JsonNode base = fetchWithoutUnknownDose(birthDate, today, List.of());
-        Set<String> valid = doseIds(base);
-        List<String> known = completed.stream().filter(valid::contains).toList();
-        log.warn("현재 일정에 없는 저장 차수를 빼고 다시 조회합니다: patientId={}, ignored={}",
-                patientId, completed.size() - known.size());
-        return known.isEmpty() ? base : fetchWithoutUnknownDose(birthDate, today, known);
+        Set<String> ignored = new TreeSet<>(unknown.unknownDoseIds());
+        ignored.retainAll(completed);
+        if (ignored.isEmpty()) {
+            log.warn("AI가 모르는 차수가 있다고 했지만 뺄 저장 차수가 없습니다: unknownCount={}",
+                    unknown.unknownDoseIds().size());
+            throw new BusinessException(VaccinationErrorCode.AI_UNAVAILABLE);
+        }
+        List<String> known = completed.stream().filter(id -> !ignored.contains(id)).toList();
+        log.warn("현재 일정에 없는 저장 차수를 빼고 다시 조회합니다: ignoredCount={}, ignoredDoseIds={}",
+                ignored.size(), ignored);
+        try {
+            return schedules.fetchSchedule(birthDate, today, known);
+        } catch (UnknownDoseException e) {
+            log.warn("모르는 차수를 빼고 다시 조회했지만 AI가 또 거절했습니다: unknownCount={}",
+                    e.unknownDoseIds().size());
+            throw new BusinessException(VaccinationErrorCode.AI_UNAVAILABLE);
+        }
     }
 
     /** 일정 응답의 vaccines[].doses[].doseId 목록입니다. 구조가 없으면 빈 집합입니다. */
@@ -102,18 +115,5 @@ public class VaccinationQueryService {
             throw new BusinessException(VaccinationErrorCode.BIRTH_DATE_IN_FUTURE);
         }
         return birthDate;
-    }
-
-    /** 재조회에서도 모르는 차수라고 하면 AI 응답이 서로 어긋난 것이므로 503으로 바꿉니다. */
-    private JsonNode fetchWithoutUnknownDose(LocalDate birthDate, LocalDate today, List<String> doses) {
-        try {
-            return schedules.fetchSchedule(birthDate, today, doses);
-        } catch (BusinessException e) {
-            if (e.getErrorCode() != VaccinationErrorCode.UNKNOWN_DOSE) {
-                throw e;
-            }
-            log.warn("일정에서 얻은 차수로 다시 조회했지만 AI가 모르는 차수라고 응답했습니다.");
-            throw new BusinessException(VaccinationErrorCode.AI_UNAVAILABLE);
-        }
     }
 }
