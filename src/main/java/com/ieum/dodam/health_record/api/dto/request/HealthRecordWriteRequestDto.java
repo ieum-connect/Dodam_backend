@@ -11,4 +11,4 @@ public record HealthRecordWriteRequestDto(
         UUID patientId,
         @NotBlank @Size(max = 2000) String body,
         UUID visitId,
-        Instant recordedAt) {}
+        Instant recordedAt, @Size(max=10) java.util.Set<@jakarta.validation.constraints.NotNull UUID> tagIds) {}

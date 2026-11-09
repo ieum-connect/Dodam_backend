@@ -9,6 +9,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AuthCookieServiceTest {
 
     @Test
+    void productionCookieDeletionPreservesSecureAndHttpOnlyFlags() {
+        AuthCookieService cookies = new AuthCookieService(null,"DODAM_TOKEN",30,"DODAM_SESSION");
+        org.springframework.test.util.ReflectionTestUtils.setField(cookies,"secure",true);
+        MockHttpServletResponse response=new MockHttpServletResponse();cookies.clearAll(response);
+        assertThat(response.getHeaders(HttpHeaders.SET_COOKIE)).hasSize(2)
+            .allSatisfy(header -> assertThat(header).contains("Secure","HttpOnly","SameSite=Lax","Max-Age=0"));
+    }
+
+    @Test
     void clearAllExpiresJwtAndSessionCookies() {
         AuthCookieService cookies = new AuthCookieService(null, "DODAM_TOKEN", 30, "DODAM_SESSION");
         MockHttpServletResponse response = new MockHttpServletResponse();
