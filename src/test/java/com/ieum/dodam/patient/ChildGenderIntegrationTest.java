@@ -72,6 +72,50 @@ class ChildGenderIntegrationTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void editsOwnProfileAndRejectsEmptyName() throws Exception {
+        mvc.perform(put("/api/me/profile").header("Authorization", token)
+                .contentType("application/json").content("{\"name\":\"  수정한 보호자  \"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("수정한 보호자"));
+        em.flush(); em.clear();
+        mvc.perform(get("/api/me").header("Authorization", token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("수정한 보호자"));
+        mvc.perform(put("/api/me/profile").header("Authorization", token)
+                .contentType("application/json").content("{\"name\":\"  \"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void newChildHasNoGrowthOrMedicationFromSiblingAndStrangerCannotEdit() throws Exception {
+        String first = mvc.perform(post("/api/children").header("Authorization", token)
+                .contentType("application/json").content(body("")))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String firstId = json.readTree(first).get("id").asText();
+        mvc.perform(post("/api/medication-series").header("Authorization", token)
+                .contentType("application/json").content(json.writeValueAsString(java.util.Map.of(
+                        "patientId", firstId, "requestId", UUID.randomUUID().toString(),
+                        "title", "첫째 복약", "startsAt", java.time.Instant.now().plusSeconds(3600).toString(),
+                        "timeZone", "Asia/Seoul"))))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/medication-series").param("patientId", firstId).header("Authorization", token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(post("/api/growth-records").header("Authorization", token)
+                .contentType("application/json").content("{\"patientId\":\""+firstId+"\",\"measuredOn\":\"2025-01-01\",\"heightCm\":80,\"weightKg\":10}"))
+                .andExpect(status().isCreated());
+        String second = mvc.perform(post("/api/children").header("Authorization", token)
+                .contentType("application/json").content(body("")))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String secondId = json.readTree(second).get("id").asText();
+        mvc.perform(get("/api/growth-records").param("patientId", secondId).header("Authorization", token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get("/api/medication-series").param("patientId", secondId).header("Authorization", token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        var other = accounts.chooseRole(accounts.loginOrRegister(UUID.randomUUID().toString(), "다른 보호자").getKakaoId(), UserRole.CAREGIVER);
+        mvc.perform(put("/api/children/"+firstId).header("Authorization", "Bearer "+jwt.create(other))
+                .contentType("application/json").content(body("")))
+                .andExpect(status().isForbidden());
+    }
+
     private String body(String gender) {
         return "{\"name\":\"박도윤\",\"birthDate\":\"2024-01-01\"" + gender + "}";
     }
