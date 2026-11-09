@@ -63,6 +63,16 @@ public class AuthApiController {
         return new AuthConfigResponse(kakaoReady(), demoLogin);
     }
 
+    public record ProfileRequest(String name) {}
+
+    @PutMapping("/api/me/profile")
+    public MeResponse updateProfile(@AuthenticationPrincipal OAuth2User principal,
+                                    @RequestBody ProfileRequest request) {
+        User updated = accounts.updateName(kakaoId(principal), request.name());
+        refreshSession(principal, updated);
+        return toMe(updated);
+    }
+
     @PostMapping("/api/role")
     public ResponseEntity<MeResponse> chooseRole(
             @AuthenticationPrincipal OAuth2User user,

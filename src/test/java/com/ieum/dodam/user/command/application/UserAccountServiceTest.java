@@ -41,14 +41,15 @@ class UserAccountServiceTest {
     }
 
     @Test
-    void secondLoginKeepsOneRowAndUpdatesName() {
+    void secondLoginKeepsOneRowAndPreservesEditedName() {
         UserAccountService accounts = new UserAccountService(users, patients);
         accounts.loginOrRegister("kakao-minji", "민지");
 
+        accounts.updateName("kakao-minji", "수정한 이름");
         User again = accounts.loginOrRegister("kakao-minji", "김민지");
 
         assertThat(users.count()).isEqualTo(1);
-        assertThat(again.getName()).isEqualTo("김민지");
+        assertThat(again.getName()).isEqualTo("수정한 이름");
         assertThat(again.getRole()).isEqualTo(UserRole.PENDING);
     }
 
