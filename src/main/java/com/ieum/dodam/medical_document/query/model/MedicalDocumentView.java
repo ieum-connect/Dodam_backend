@@ -4,6 +4,7 @@ import com.ieum.dodam.global.status.AiJobStatus;
 import com.ieum.dodam.global.status.DocumentStatus;
 import com.ieum.dodam.global.status.ResultStatus;
 import com.ieum.dodam.global.type.DocumentType;
+import com.ieum.dodam.medical_document.domain.EmbeddingStatus;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -19,6 +20,7 @@ public record MedicalDocumentView(
         LocalDate visitedOn,
         Author author,
         DocumentStatus documentStatus,
+        EmbeddingStatus embeddingStatus,
         AiJobStatus latestAiJobStatus,
         ResultStatus resultStatus,
         Instant statusChangedAt,

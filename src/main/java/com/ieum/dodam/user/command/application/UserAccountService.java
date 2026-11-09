@@ -34,7 +34,7 @@ public class UserAccountService {
         }
         String name = (nickname == null || nickname.isBlank()) ? "이용자" : nickname.trim();
         return users.findByKakaoId(kakaoId).map(existing -> {
-            existing.setName(name);
+            // Keep the display name edited in Dodam across Kakao sign-ins.
             return existing;
         }).orElseGet(() -> {
             User created = new User();
@@ -44,6 +44,19 @@ public class UserAccountService {
             created.setStatus(UserStatus.ACTIVE);
             return users.save(created);
         });
+    }
+
+    @Transactional
+    public User updateName(String kakaoId, String name) {
+        if (name == null || name.isBlank() || name.trim().length() > 100) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "이름을 1~100자로 입력해 주세요.");
+        }
+        User user = users.findByKakaoId(kakaoId)
+                .filter(u -> u.getStatus() == UserStatus.ACTIVE)
+                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+        user.setName(name.trim());
+        return user;
     }
 
     @Transactional
