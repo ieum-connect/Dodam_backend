@@ -31,6 +31,8 @@ public class ChatMessage {
     private String content;
     @Column(name = "result_document_id")
     private UUID resultDocumentId;
+    @Column(name = "rag_metadata_json", columnDefinition = "TEXT")
+    private String ragMetadataJson;
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -46,9 +48,12 @@ public class ChatMessage {
     }
 
     /** AI 답변 문서와 연결된 어시스턴트 메시지를 생성한다. */
-    public static ChatMessage answer(UUID sessionId, String content, UUID resultDocumentId) {
+    public static ChatMessage answer(
+            UUID sessionId, String content, UUID resultDocumentId, String ragMetadataJson
+    ) {
         ChatMessage message = of(sessionId, ChatRole.ASSISTANT, content);
         message.resultDocumentId = resultDocumentId;
+        message.ragMetadataJson = ragMetadataJson;
         return message;
     }
 }

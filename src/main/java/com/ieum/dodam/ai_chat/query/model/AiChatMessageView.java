@@ -12,14 +12,15 @@ public record AiChatMessageView(
         ChatRole role,
         String content,
         Instant createdAt,
-        UUID resultDocumentId
+        UUID resultDocumentId,
+        String ragMetadataJson
 ) {
 
     /** 채팅 메시지 엔티티를 조회 결과로 변환한다. */
     public static AiChatMessageView from(ChatMessage message) {
         return new AiChatMessageView(
                 message.getId(), message.getRole(), message.getContent(),
-                message.getCreatedAt(), message.getResultDocumentId()
+                message.getCreatedAt(), message.getResultDocumentId(), message.getRagMetadataJson()
         );
     }
 }

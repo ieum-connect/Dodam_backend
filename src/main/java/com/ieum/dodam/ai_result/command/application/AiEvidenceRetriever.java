@@ -9,5 +9,17 @@ import java.util.UUID;
 public interface AiEvidenceRetriever {
 
     /** 대상 환자와 선택 문서 범위에서 답변 근거를 조회한다. */
-    List<AiResultGenerationClient.Evidence> retrieve(UUID patientId, List<UUID> documentIds);
+    EvidenceResult retrieve(
+            UUID patientId, UUID actorUserId, String question, List<UUID> documentIds
+    );
+
+    record EvidenceResult(
+            List<AiResultGenerationClient.Evidence> evidence,
+            List<AiResultGenerationClient.EvidenceWarning> warnings
+    ) {
+        public EvidenceResult {
+            evidence = evidence == null ? List.of() : List.copyOf(evidence);
+            warnings = warnings == null ? List.of() : List.copyOf(warnings);
+        }
+    }
 }

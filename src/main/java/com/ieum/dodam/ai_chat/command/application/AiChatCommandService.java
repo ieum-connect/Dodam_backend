@@ -65,19 +65,23 @@ public class AiChatCommandService {
             QuestionType questionType,
             List<UUID> documentIds
     ) {
-        UUID patientId = transactions.execute(status -> {
+        ChatRequestContext context = transactions.execute(status -> {
             ChatSession session = requireOwnedSession(actor, sessionId);
+            List<ChatMessage> history = messages.findBySessionIdOrderByCreatedAtAsc(sessionId);
+            String retrievalQuery = contextualQuery(history, question);
             if ("새 채팅".equals(session.getTitle())) {
                 session.rename(questionTitle(question));
             }
             messages.save(ChatMessage.of(sessionId, ChatRole.USER, question));
-            return session.getPatientId();
+            return new ChatRequestContext(session.getPatientId(), retrievalQuery);
         });
         AiResultDocumentView answer = resultDocuments.create(
-                actor, patientId, question, questionType, documentIds
+                actor, context.patientId(), question, context.retrievalQuery(), questionType, documentIds
         );
         return transactions.execute(status -> {
-            messages.save(ChatMessage.answer(sessionId, answerText(answer), answer.resultDocumentId()));
+            messages.save(ChatMessage.answer(
+                    sessionId, answerText(answer), answer.resultDocumentId(), answer.citationJson()
+            ));
             return messages.findBySessionIdOrderByCreatedAtAsc(sessionId)
                     .stream().map(AiChatMessageView::from).toList();
         });
@@ -113,5 +117,19 @@ public class AiChatCommandService {
             return "새 채팅";
         }
         return normalized.length() > 38 ? normalized.substring(0, 37).stripTrailing() + "…" : normalized;
+    }
+
+    /** 최근 대화는 검색어 해석에만 사용하고 LLM의 의료 근거로는 전달하지 않는다. */
+    private static String contextualQuery(List<ChatMessage> history, String question) {
+        int start = Math.max(0, history.size() - 6);
+        String previous = history.subList(start, history.size()).stream()
+                .map(message -> message.getRole() + ": " + message.getContent())
+                .reduce((left, right) -> left + "\n" + right)
+                .orElse("");
+        String query = previous.isBlank() ? question : previous + "\nUSER: " + question;
+        return query.length() <= 2000 ? query : query.substring(query.length() - 2000);
+    }
+
+    private record ChatRequestContext(UUID patientId, String retrievalQuery) {
     }
 }

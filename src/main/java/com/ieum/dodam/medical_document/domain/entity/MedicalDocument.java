@@ -4,6 +4,7 @@ import com.ieum.dodam.global.exception.BusinessException;
 import com.ieum.dodam.global.status.DocumentStatus;
 import com.ieum.dodam.global.type.DocumentType;
 import com.ieum.dodam.medical_document.error.MedicalDocumentErrorCode;
+import com.ieum.dodam.medical_document.domain.EmbeddingStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -97,6 +98,30 @@ public class MedicalDocument {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "embedding_status", nullable = false, length = 20,
+            columnDefinition = "VARCHAR(20) DEFAULT 'PENDING'")
+    private EmbeddingStatus embeddingStatus;
+
+    @Column(name = "embedding_model", length = 100)
+    private String embeddingModel;
+
+    @Column(name = "embedding_dimensions")
+    private Integer embeddingDimensions;
+
+    @Column(name = "embedding_started_at")
+    private Instant embeddingStartedAt;
+
+    @Column(name = "embedding_completed_at")
+    private Instant embeddingCompletedAt;
+
+    @Column(name = "embedding_error_code", length = 100)
+    private String embeddingErrorCode;
+
+    @Column(name = "embedding_retry_count", nullable = false,
+            columnDefinition = "INTEGER DEFAULT 0")
+    private int embeddingRetryCount;
+
     /** 업로드 직후 문서를 만듭니다. 상태는 UPLOADED, 유형은 분류 전이므로 UNKNOWN입니다. */
     public static MedicalDocument uploaded(
             UUID patientId,
@@ -135,6 +160,7 @@ public class MedicalDocument {
         document.contentSha256 = contentSha256;
         document.documentType = DocumentType.UNKNOWN;
         document.status = DocumentStatus.UPLOADED;
+        document.embeddingStatus = EmbeddingStatus.PENDING;
         return document;
     }
 
