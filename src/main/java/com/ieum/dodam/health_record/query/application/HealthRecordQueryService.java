@@ -108,6 +108,6 @@ public class HealthRecordQueryService {
                 r.getRecordedAt(),
                 r.getCreatedAt(),
                 r.getUpdatedAt(),
-                r.isProxyWritten());
+                r.isProxyWritten(), java.util.Set.copyOf(r.getTagIds()));
     }
 }

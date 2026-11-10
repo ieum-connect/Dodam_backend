@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import java.time.Instant;
 
 /** 건강기록 작성·수정·삭제의 권한과 데이터 규칙을 처리한다. */
 @Service
@@ -40,7 +41,17 @@ public class HealthRecordCommandService {
 
     /** 대상 개인과 방문의 권한을 검사한 후 본문을 저장한다. */
     public HealthRecord create(User actor, UUID patientId, String body, UUID visitId) {
+        return create(actor, patientId, body, visitId, null);
+    }
+
+    public HealthRecord create(
+            User actor, UUID patientId, String body, UUID visitId, Instant recordedAt) {
+        return create(actor,patientId,body,visitId,recordedAt,null);
+    }
+
+    public HealthRecord create(User actor,UUID patientId,String body,UUID visitId,Instant recordedAt,java.util.Set<UUID> tagIds) {
         UUID target = access.requirePatient(actor, patientId);
+        validateTags(target,tagIds);
         validateBody(body);
         validateVisit(target, visitId);
         HealthRecord saved =
@@ -50,7 +61,9 @@ public class HealthRecordCommandService {
                                 actor.getId(),
                                 visitId,
                                 body,
-                                actor.getRole() == UserRole.CAREGIVER));
+                                actor.getRole() == UserRole.CAREGIVER,
+                                recordedAt));
+        if(tagIds!=null) saved.replaceTags(tagIds);
         if (actor.getRole() == UserRole.CAREGIVER) {
             events.publishEvent(
                     new SystemActivityEvent(
@@ -65,18 +78,29 @@ public class HealthRecordCommandService {
 
     /** 본인 프로필의 개인 또는 ACTIVE 보호자가 기록을 수정한다. */
     public HealthRecord update(User actor, UUID id, String body, UUID visitId) {
-        return update(actor, id, null, body, visitId);
+        return update(actor, id, null, body, visitId, null);
     }
 
     /** 대상 개인을 바꾸는 요청은 거절하고 허용된 사용자가 본문을 수정한다. */
     public HealthRecord update(User actor, UUID id, UUID patientId, String body, UUID visitId) {
+        return update(actor, id, patientId, body, visitId, null);
+    }
+
+    public HealthRecord update(
+            User actor, UUID id, UUID patientId, String body, UUID visitId, Instant recordedAt) {
+        return update(actor,id,patientId,body,visitId,recordedAt,null);
+    }
+
+    public HealthRecord update(User actor,UUID id,UUID patientId,String body,UUID visitId,Instant recordedAt,java.util.Set<UUID> tagIds) {
         HealthRecord record = requireWritable(actor, id);
+        validateTags(record.getPatientId(),tagIds);
         if (patientId != null && !patientId.equals(record.getPatientId())) {
             throw new BusinessException(GlobalErrorCode.INVALID_REQUEST);
         }
         validateBody(body);
         validateVisit(record.getPatientId(), visitId);
-        record.update(body, visitId);
+        record.update(body, visitId, recordedAt);
+        if(tagIds!=null) record.replaceTags(tagIds);
         return record;
     }
 
@@ -92,6 +116,16 @@ public class HealthRecordCommandService {
         access.requirePatient(actor, record.getPatientId());
         // 본인 또는 ACTIVE 보호자임을 확인한 뒤 작성자와 무관하게 관리한다.
         return record;
+    }
+
+    private void validateTags(UUID patientId,java.util.Set<UUID> ids) {
+        if(ids==null)return;
+        if(ids.size()>10)throw new BusinessException(GlobalErrorCode.INVALID_REQUEST);
+        jdbc.queryForObject("select id from patients where id=? for update",UUID.class,patientId);
+        for(UUID id:ids) {
+            Integer count=jdbc.queryForObject("select count(*) from memo_tags where id=? and patient_id=? and deleted_at is null",Integer.class,id,patientId);
+            if(count==null || count!=1)throw new BusinessException(GlobalErrorCode.INVALID_REQUEST);
+        }
     }
 
     private void validateBody(String body) {

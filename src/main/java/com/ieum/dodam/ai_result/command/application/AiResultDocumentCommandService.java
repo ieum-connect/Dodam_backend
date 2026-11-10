@@ -56,22 +56,29 @@ public class AiResultDocumentCommandService {
             User actor,
             UUID requestedPatientId,
             String question,
+            String retrievalQuery,
             QuestionType questionType,
             List<UUID> documentIds
     ) {
         UUID patientId = permissions.resolveTargetPatient(actor, requestedPatientId);
+        QuestionType storedQuestionType = questionType == null
+                ? QuestionType.DOCUMENT_EASY_EXPLANATION : questionType;
         AiResultDocument result = transactions.execute(status -> resultDocuments.save(
-                AiResultDocument.queued(patientId, actor.getId(), question, questionType)));
+                AiResultDocument.queued(patientId, actor.getId(), question, storedQuestionType)));
         UUID resultId = result.getId();
-        List<AiResultGenerationClient.Evidence> evidence;
+        AiEvidenceRetriever.EvidenceResult retrieval;
         try {
-            evidence = evidenceRetriever.retrieve(patientId, documentIds);
+            retrieval = evidenceRetriever.retrieve(
+                    patientId, actor.getId(), retrievalQuery, documentIds
+            );
         } catch (Exception exception) {
             return fail(resultId, "문서 근거를 조회하지 못했어요.");
         }
+        List<AiResultGenerationClient.Evidence> evidence = retrieval.evidence();
         if (evidence.isEmpty()) {
             return complete(resultId, ResultStatus.INSUFFICIENT, "근거 부족",
-                    "선택한 문서에서 분석 완료된 근거를 찾지 못했어요.", "[]");
+                    emptyEvidenceMessage(retrieval.warnings()),
+                    warningMetadata(retrieval.warnings()));
         }
         AiResultGenerationClient client = generationClients.getIfAvailable();
         if (client == null) {
@@ -94,7 +101,7 @@ public class AiResultDocumentCommandService {
             return fail(resultId, "AI 응답 처리 중 오류가 발생했어요 (" + exception.getClass().getSimpleName() + ").");
         }
         try {
-            return applyGenerationResult(resultId, generated, evidence);
+            return applyGenerationResult(resultId, generated, evidence, retrieval.warnings());
         } catch (Exception exception) {
             return fail(resultId, "AI 응답 처리 중 오류가 발생했어요 (" + exception.getClass().getSimpleName() + ").");
         }
@@ -104,7 +111,8 @@ public class AiResultDocumentCommandService {
     private AiResultDocumentView applyGenerationResult(
             UUID resultId,
             AiResultGenerationClient.GenerationResponse generated,
-            List<AiResultGenerationClient.Evidence> evidence
+            List<AiResultGenerationClient.Evidence> evidence,
+            List<AiResultGenerationClient.EvidenceWarning> warnings
     ) {
         if (generated.failed()) {
             String reason = generated.userMessage() == null || generated.userMessage().isBlank()
@@ -119,7 +127,7 @@ public class AiResultDocumentCommandService {
                 ResultStatus.valueOf(generated.resultStatus()),
                 generated.title(),
                 generated.answer(),
-                citations(generated, evidence)
+                citations(generated, evidence, warnings)
         );
     }
 
@@ -144,15 +152,43 @@ public class AiResultDocumentCommandService {
     /** AI 답변 문장과 원문 근거를 JSON 형태로 직렬화한다. */
     private String citations(
             AiResultGenerationClient.GenerationResponse response,
-            List<AiResultGenerationClient.Evidence> evidence
+            List<AiResultGenerationClient.Evidence> evidence,
+            List<AiResultGenerationClient.EvidenceWarning> warnings
     ) {
         try {
             return objectMapper.writeValueAsString(Map.of(
                     "sentences", response.sentences(),
-                    "sources", evidence
+                    "sources", evidence,
+                    "warnings", warnings
             ));
         } catch (JsonProcessingException exception) {
             return "[]";
         }
+    }
+
+    private String warningMetadata(List<AiResultGenerationClient.EvidenceWarning> warnings) {
+        try {
+            return objectMapper.writeValueAsString(Map.of(
+                    "sentences", List.of(), "sources", List.of(), "warnings", warnings
+            ));
+        } catch (JsonProcessingException exception) {
+            return "[]";
+        }
+    }
+
+    private static String emptyEvidenceMessage(
+            List<AiResultGenerationClient.EvidenceWarning> warnings
+    ) {
+        boolean pending = warnings.stream()
+                .anyMatch(warning -> "DOCUMENT_INDEX_PENDING".equals(warning.code()));
+        boolean failed = warnings.stream()
+                .anyMatch(warning -> "DOCUMENT_INDEX_FAILED".equals(warning.code()));
+        if (pending) {
+            return "선택한 문서의 AI 검색을 준비하고 있어요. 잠시 후 다시 질문해 주세요.";
+        }
+        if (failed) {
+            return "선택한 문서를 AI 검색용으로 준비하지 못했어요. 문서 화면에서 다시 시도해 주세요.";
+        }
+        return "선택한 문서에서 질문과 관련된 근거를 찾지 못했어요.";
     }
 }

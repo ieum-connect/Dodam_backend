@@ -60,6 +60,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/", "/login", "/home", "/role", "/terms", "/privacy",
                                 "/api/auth/config", "/api/demo/login", "/logout",
+                                "/internal/welfare-programs/**",
                                 "/oauth2/**", "/login/oauth2/**", "/error"
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/care-relations").hasRole("CAREGIVER")

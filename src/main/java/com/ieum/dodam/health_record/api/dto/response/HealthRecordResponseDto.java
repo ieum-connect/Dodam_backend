@@ -14,4 +14,4 @@ public record HealthRecordResponseDto(
         Instant recordedAt,
         Instant createdAt,
         Instant updatedAt,
-        boolean proxyWritten) {}
+        boolean proxyWritten, java.util.Set<UUID> tagIds) {}

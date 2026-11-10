@@ -2,17 +2,20 @@ package com.ieum.dodam.action_item.domain.entity;
 
 import com.ieum.dodam.action_item.domain.ActionItemApprovalStatus;
 import com.ieum.dodam.action_item.domain.ActionItemType;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 /** 진료 문서에서 나온 할 일 후보와 승인 상태를 관리하는 엔티티입니다. */
@@ -22,8 +25,7 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ActionItem {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "visit_id", nullable = false)
     private UUID visitId;
@@ -60,4 +62,25 @@ public class ActionItem {
     @Column(name = "cancel_reason", length = 100)
     private String cancelReason;
 
+    public void approve(UUID actorId, Instant decidedAt) {
+        requirePending();
+        Objects.requireNonNull(actorId);
+        Objects.requireNonNull(decidedAt);
+        approvedByUserId = actorId;
+        approvedAt = decidedAt;
+        approvalStatus = ActionItemApprovalStatus.APPROVED;
+    }
+
+    public void reject() {
+        requirePending();
+        approvedByUserId = null;
+        approvedAt = null;
+        approvalStatus = ActionItemApprovalStatus.REJECTED;
+    }
+
+    private void requirePending() {
+        if (approvalStatus != ActionItemApprovalStatus.PENDING) {
+            throw new IllegalStateException("Only pending action items can be decided");
+        }
+    }
 }

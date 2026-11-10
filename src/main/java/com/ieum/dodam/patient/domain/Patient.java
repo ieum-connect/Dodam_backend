@@ -28,6 +28,9 @@ public class Patient {
     @Column(name = "birth_date")
     private LocalDate birthDate;
 
+    @Column(name = "gender", length = 20)
+    private String gender;
+
     @Column(name = "invite_code", nullable = false, unique = true, length = 16)
     private String inviteCode;
 
@@ -64,6 +67,8 @@ public class Patient {
     public void setChildName(String childName) { this.childName = childName; }
     public LocalDate getBirthDate() { return birthDate; }
     public void setBirthDate(LocalDate birthDate) { this.birthDate = birthDate; }
+    public String getGender() { return gender; }
+    public void setGender(String gender) { this.gender = gender; }
 
     public void setUserId(UUID userId) {
         this.userId = userId;

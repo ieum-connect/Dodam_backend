@@ -39,9 +39,9 @@ public class ChildApiController {
         this.users = users;
     }
 
-    public record ChildRequest(String name, LocalDate birthDate) {}
+    public record ChildRequest(String name, LocalDate birthDate, String gender) {}
     public record JoinRequest(String inviteCode) {}
-    public record ChildResponse(UUID id, String name, LocalDate birthDate, String inviteCode, int parentCount) {}
+    public record ChildResponse(UUID id, String name, LocalDate birthDate, String inviteCode, int parentCount, String gender) {}
 
     @GetMapping
     @Transactional(readOnly = true)
@@ -64,6 +64,7 @@ public class ChildApiController {
         child.setUserId(parent.getId());
         child.setChildName(request.name().trim());
         child.setBirthDate(request.birthDate());
+        child.setGender(request.gender());
         child.setInviteCode(newCode());
         child = patients.save(child);
         CareRelation link = new CareRelation();
@@ -88,6 +89,8 @@ public class ChildApiController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "아이를 찾을 수 없습니다."));
         child.setChildName(request.name().trim());
         child.setBirthDate(request.birthDate());
+        // Older clients omit gender: preserve the value they did not edit.
+        if (request.gender() != null) child.setGender(request.gender());
         return response(child);
     }
 
@@ -149,6 +152,10 @@ public class ChildApiController {
     }
 
     private void validate(ChildRequest request) {
+        if (request != null && request.gender() != null
+                && !Set.of("MALE", "FEMALE").contains(request.gender())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "성별을 확인해 주세요.");
+        }
         if (request == null || request.name() == null || request.name().isBlank()
                 || request.name().trim().length() > 100 || request.birthDate() == null
                 || request.birthDate().isAfter(LocalDate.now())
@@ -167,7 +174,7 @@ public class ChildApiController {
         }
         return new ChildResponse(child.getId(), displayName, child.getBirthDate(),
                 CareRelationCode.display(child.getInviteCode()),
-                (int) relations.countByPatientIdAndStatus(child.getId(), CareRelationStatus.ACTIVE));
+                (int) relations.countByPatientIdAndStatus(child.getId(), CareRelationStatus.ACTIVE), child.getGender());
     }
 
     private String newCode() {

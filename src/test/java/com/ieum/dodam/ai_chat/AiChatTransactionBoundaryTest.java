@@ -45,7 +45,8 @@ class AiChatTransactionBoundaryTest {
         ChatSession session = sessions.save(ChatSession.open(patientId, actor.getId(), "새 채팅"));
         QuestionType type = QuestionType.DOCUMENT_EASY_EXPLANATION;
         when(permissions.resolveTargetPatient(actor, patientId)).thenReturn(patientId);
-        when(evidenceRetriever.retrieve(eq(patientId), any())).thenReturn(List.of(evidence()));
+        when(evidenceRetriever.retrieve(eq(patientId), any(), any(), any()))
+                .thenReturn(new AiEvidenceRetriever.EvidenceResult(List.of(evidence()), List.of()));
         when(client.generate(any())).thenAnswer(invocation -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
             assertThat(messages.findBySessionIdOrderByCreatedAtAsc(session.getId()))
@@ -69,7 +70,8 @@ class AiChatTransactionBoundaryTest {
         UUID patientId = UUID.randomUUID();
         ChatSession session = sessions.save(ChatSession.open(patientId, actor.getId(), "새 채팅"));
         when(permissions.resolveTargetPatient(actor, patientId)).thenReturn(patientId);
-        when(evidenceRetriever.retrieve(eq(patientId), any())).thenReturn(List.of(evidence()));
+        when(evidenceRetriever.retrieve(eq(patientId), any(), any(), any()))
+                .thenReturn(new AiEvidenceRetriever.EvidenceResult(List.of(evidence()), List.of()));
         when(client.generate(any())).thenAnswer(invocation -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
             throw new ResourceAccessException("connection failed");

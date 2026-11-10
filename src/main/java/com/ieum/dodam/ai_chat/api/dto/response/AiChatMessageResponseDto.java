@@ -4,12 +4,14 @@ import com.ieum.dodam.ai_chat.domain.ChatRole;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.List;
 
 public record AiChatMessageResponseDto(
         UUID messageId,
         ChatRole role,
         String content,
         Instant createdAt,
-        UUID resultDocumentId
+        UUID resultDocumentId,
+        List<AiChatWarningResponseDto> warnings
 ) {
 }
