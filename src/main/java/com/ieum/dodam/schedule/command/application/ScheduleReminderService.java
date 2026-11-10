@@ -25,18 +25,21 @@ public class ScheduleReminderService {
     private final CareRelationRepository relations;
     private final UserRepository users;
     private final SystemNotificationRepository notifications;
+    private final com.ieum.dodam.notification.push.PushService push;
 
     public ScheduleReminderService(
             ScheduleRepository schedules,
             PatientRepository patients,
             CareRelationRepository relations,
             UserRepository users,
-            SystemNotificationRepository notifications) {
+            SystemNotificationRepository notifications,
+            com.ieum.dodam.notification.push.PushService push) {
         this.schedules = schedules;
         this.patients = patients;
         this.relations = relations;
         this.users = users;
         this.notifications = notifications;
+        this.push = push;
     }
 
     private static String shortText(String value, int max) {
@@ -67,9 +70,10 @@ public class ScheduleReminderService {
                 if (users.findById(recipient)
                         .filter(user -> user.getStatus() == UserStatus.ACTIVE)
                         .isPresent()) {
-                    notifications.save(
+                    var notification = notifications.save(
                             new SystemNotification(
                                     recipient, SystemActivityType.SCHEDULE_DUE, message, path));
+                    push.enqueue(notification, schedule);
                 }
             }
             schedule.markReminded(now);
