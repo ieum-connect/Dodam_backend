@@ -97,7 +97,7 @@ public class MedicalDocumentQueryService {
         if (!accessPolicy.canRead(me, document.getPatientId())) {
             throw new BusinessException(MedicalDocumentErrorCode.DOCUMENT_NOT_FOUND);
         }
-        String signedUrl = storage.createSignedUrl(document.getStorageKey(), SIGNED_URL_TTL);
+        String signedUrl = "/api/documents/" + document.getId() + "/original";
         List<MedicalDocument> single = List.of(document);
         return toView(document, authorsById(single), aiStatusesById(single), signedUrl);
     }

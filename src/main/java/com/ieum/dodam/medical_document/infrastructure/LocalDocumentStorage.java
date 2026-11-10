@@ -17,7 +17,7 @@ import java.time.Instant;
  * 로컬 파일시스템에 원본을 저장하는 구현입니다. S3 어댑터는 후속 이슈에서 추가합니다.
  */
 @Component
-public class LocalDocumentStorage implements DocumentStoragePort {
+public class LocalDocumentStorage implements DocumentStoragePort, com.ieum.dodam.medical_document.domain.OriginalDocumentStoragePort {
 
     private static final String DEFAULT_ROOT = "./data/object-storage";
 
@@ -61,6 +61,19 @@ public class LocalDocumentStorage implements DocumentStoragePort {
             Files.deleteIfExists(resolveInsideRoot(storageKey));
         } catch (IOException e) {
             throw new DocumentStorageException("원본 파일을 삭제하지 못했습니다.", e);
+        }
+    }
+
+    @Override
+    public byte[] readOriginal(String storageKey) {
+        Path target = resolveInsideRoot(storageKey);
+        try {
+            if (!target.toRealPath().startsWith(root.toRealPath())) {
+                throw new DocumentStorageException("원본 경로가 저장소 밖을 가리킵니다.");
+            }
+            return Files.readAllBytes(target);
+        } catch (IOException e) {
+            throw new DocumentStorageException("원본 파일을 읽지 못했습니다.", e);
         }
     }
 

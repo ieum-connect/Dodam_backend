@@ -181,7 +181,7 @@ class MedicalDocumentServiceTest {
         MedicalDocumentView detail = queries.get(patient, document.getId());
         MedicalDocumentView listItem = queries.list(patient, null, null, null, null).items().get(0);
 
-        assertThat(detail.signedUrl()).isEqualTo("https://storage.test/" + document.getStorageKey());
+        assertThat(detail.signedUrl()).isEqualTo("/api/documents/" + document.getId() + "/original");
         assertThat(listItem.signedUrl()).isNull();
     }
 
