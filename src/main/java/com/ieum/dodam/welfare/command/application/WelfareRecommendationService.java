@@ -16,6 +16,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -37,6 +38,7 @@ import java.util.UUID;
  */
 @Service
 public class WelfareRecommendationService {
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     /** 추천 목록에 노출하는 최소 일치율. */
     private static final int MINIMUM_SCORE = 30;
     private static final int MAX_ITEMS = 50;
@@ -111,7 +113,7 @@ public class WelfareRecommendationService {
 
     private int ageInMonths(LocalDate birthDate) {
         if (birthDate == null) return -1;
-        Period age = Period.between(birthDate, LocalDate.now(clock));
+        Period age = Period.between(birthDate, LocalDate.now(clock.withZone(SEOUL)));
         if (age.isNegative()) return -1;
         return age.getYears() * 12 + age.getMonths();
     }

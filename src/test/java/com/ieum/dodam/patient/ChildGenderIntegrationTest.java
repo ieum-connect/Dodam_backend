@@ -10,6 +10,8 @@ import com.ieum.dodam.patient.domain.repository.PatientRepository;
 import com.ieum.dodam.user.command.application.UserAccountService;
 import com.ieum.dodam.user.domain.UserRole;
 import jakarta.persistence.EntityManager;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,6 +71,17 @@ class ChildGenderIntegrationTest {
     void rejectsUnknownGender() throws Exception {
         mvc.perform(post("/api/children").header("Authorization", token)
                 .contentType("application/json").content(body(",\"gender\":\"invalid\"")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void acceptsBirthDateTodayInSeoulAndRejectsTomorrow() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        mvc.perform(post("/api/children").header("Authorization", token)
+                .contentType("application/json").content(body("").replace("2024-01-01", today.toString())))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.birthDate").value(today.toString()));
+        mvc.perform(post("/api/children").header("Authorization", token)
+                .contentType("application/json").content(body("").replace("2024-01-01", today.plusDays(1).toString())))
                 .andExpect(status().isBadRequest());
     }
 

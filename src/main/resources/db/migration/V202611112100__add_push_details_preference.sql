@@ -1,0 +1,1 @@
+ALTER TABLE push_devices ADD COLUMN show_details BOOLEAN NOT NULL DEFAULT FALSE;

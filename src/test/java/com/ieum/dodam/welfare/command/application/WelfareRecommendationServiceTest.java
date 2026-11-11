@@ -37,6 +37,16 @@ class WelfareRecommendationServiceTest {
             patients, profiles, programs, new WelfareEligibilityEvaluator(), Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
+    void usesSeoulDateForChildrenBornJustAfterMidnight() {
+        given(null);
+        patients.findById(CHILD_ID).orElseThrow().setBirthDate(LocalDate.of(2026, 11, 6));
+        var midnightService = new WelfareRecommendationService(patients, profiles, programs,
+                new WelfareEligibilityEvaluator(), Clock.fixed(Instant.parse("2026-11-05T15:30:00Z"), ZoneOffset.UTC));
+
+        assertThat(midnightService.recommend(CHILD_ID, false).child().ageMonths()).isZero();
+    }
+
+    @Test
     @DisplayName("거주지역 밖의 사업은 목록에서 빠지고 제외 건수로 집계된다")
     void dropsProgramsOutsideUserRegion() {
         given(profile("서울특별시 강동구 길동").build(),
