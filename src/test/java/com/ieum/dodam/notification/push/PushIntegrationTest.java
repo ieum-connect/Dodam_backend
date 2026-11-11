@@ -66,6 +66,17 @@ class PushIntegrationTest {
         assertFalse(push.deliverOne(now.plusSeconds(2)));
         push.deliverOne(now.plusSeconds(32)); assertFalse(devices.findById("device").orElseThrow().isActive());
     }
+    @Test void disabledPushReturnsCommonError() throws Exception {
+        ReflectionTestUtils.setField(controller,"enabled",false);
+        mvc.perform(post("/api/push/devices")
+                .header("Authorization","Bearer "+jwt.create(owner))
+                .contentType("application/json").content("{\"token\":\"example\"}"))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(jsonPath("$.code").value("PUSH_DISABLED"))
+            .andExpect(jsonPath("$.message").isNotEmpty());
+        assertTrue(devices.findById(PushApiController.hash("example")).isEmpty());
+        verifyNoInteractions(sender);
+    }
     @Test void registrationRequiresAuthenticationAndUnregisterIsOwned() throws Exception {
         mvc.perform(post("/api/push/devices").contentType("application/json").content("{\"token\":\"example\"}")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/push/devices").header("Authorization","Bearer "+jwt.create(owner)).contentType("application/json").content("{\"token\":\"example\"}")).andExpect(status().isNoContent());

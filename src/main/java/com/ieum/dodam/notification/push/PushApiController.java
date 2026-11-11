@@ -9,7 +9,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
+import com.ieum.dodam.global.exception.BusinessException;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.util.*;
@@ -31,7 +31,7 @@ public class PushApiController {
     }
     @PostMapping("/devices") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional
     public void register(@AuthenticationPrincipal OAuth2User principal,@Valid @RequestBody DeviceRequest body) {
-        if(!enabled) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Push unavailable");
+        if(!enabled) throw new BusinessException(PushErrorCode.PUSH_DISABLED);
         var userId=actor(principal); var id=hash(body.token());
         var device=devices.findById(id).orElseGet(()->new PushDevice(id,userId,body.token()));
         device.bind(userId,body.token()); devices.save(device);
