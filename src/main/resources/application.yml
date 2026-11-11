@@ -67,6 +67,14 @@ logging:
     org.springframework.security.oauth2: INFO
 
 dodam:
+  push:
+    enabled: ${PUSH_ENABLED:false}
+    credentials: ${FIREBASE_CREDENTIALS:}
+    web-api-key: ${FIREBASE_WEB_API_KEY:}
+    project-id: ${FIREBASE_PROJECT_ID:}
+    sender-id: ${FIREBASE_SENDER_ID:}
+    app-id: ${FIREBASE_APP_ID:}
+    vapid-key: ${FIREBASE_VAPID_KEY:}
   demo-login: ${DEMO_LOGIN:false}
   frontend-origin: ${FRONTEND_ORIGIN:http://localhost:4173}
   welfare:
