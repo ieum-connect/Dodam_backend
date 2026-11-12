@@ -64,8 +64,8 @@ public class ScheduleReminderService {
                     + shortText(schedule.getTitle(), 120)
                     + (schedule.getScheduleType() == ScheduleType.MEDICATION
                             ? " — 복용 여부를 확인해주세요." : " — 일정을 확인해주세요.");
-            String path =
-                    "/calendar?patientId=" + patient.getId() + "&date=" + schedule.getStartsAt();
+            String page = schedule.getScheduleType() == ScheduleType.MEDICATION ? "/meds" : "/calendar";
+            String path = page + "?patientId=" + patient.getId() + "&date=" + schedule.getStartsAt();
             for (var recipient : recipients) {
                 if (users.findById(recipient)
                         .filter(user -> user.getStatus() == UserStatus.ACTIVE)

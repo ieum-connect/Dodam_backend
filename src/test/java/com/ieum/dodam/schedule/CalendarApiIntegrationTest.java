@@ -122,6 +122,32 @@ class CalendarApiIntegrationTest {
     }
 
     @Test
+    void editingWeekdaysUpdatesFutureDosesAndPreservesCompletedRecords() {
+        var zone = ZoneId.of("Asia/Seoul");
+        var first = LocalDate.now(zone).plusDays(1);
+        var start = first.atTime(9, 0).atZone(zone).toInstant();
+        int firstWeekday = 1 << (first.getDayOfWeek().getValue() - 1);
+        var rule = recurring.create(owner, patientId, UUID.randomUUID(), "요일 복약", null,
+                start, zone.getId(), first.plusDays(7), firstWeekday);
+        var original = schedules.findAll().stream()
+                .filter(row -> rule.getId().equals(row.getSeriesId())).toList();
+        assertThat(original).extracting(row -> row.getOccurrenceDate())
+                .containsExactlyInAnyOrder(first, first.plusDays(7));
+        var completed = original.stream().filter(row -> row.getOccurrenceDate().equals(first)).findFirst().orElseThrow();
+        completed.finish(true);
+        schedules.flush();
+
+        int nextWeekday = 1 << (first.plusDays(1).getDayOfWeek().getValue() - 1);
+        recurring.update(owner, rule.getId(), rule.getVersion(), nextWeekday, LocalTime.of(18, 30), first.plusDays(7));
+        assertThat(schedules.findById(completed.getId()).orElseThrow().getStatus()).isEqualTo("COMPLETED");
+        assertThat(schedules.findAll()).filteredOn(row -> rule.getId().equals(row.getSeriesId()) && "SCHEDULED".equals(row.getStatus()))
+                .singleElement().satisfies(row -> {
+                    assertThat(row.getOccurrenceDate()).isEqualTo(first.plusDays(1));
+                    assertThat(row.getStartsAt()).isEqualTo(first.plusDays(1).atTime(18, 30).atZone(zone).toInstant());
+                });
+    }
+
+    @Test
     void replenishmentQuerySkipsFinishedAndAlreadyCoveredRules() {
         var zone = ZoneId.of("Asia/Seoul");
         var day = LocalDate.now(zone).plusDays(1);

@@ -129,6 +129,50 @@ class ChildGenderIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void ownerDisconnectsOneChildAndOldInviteCanNoLongerRestoreAccess() throws Exception {
+        String childJson = mvc.perform(post("/api/children").header("Authorization", token)
+                .contentType("application/json").content(body("")))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        var child = json.readTree(childJson);
+        String id = child.get("id").asText();
+        String code = child.get("inviteCode").asText();
+        var other = accounts.chooseRole(accounts.loginOrRegister(UUID.randomUUID().toString(), "다른 보호자").getKakaoId(), UserRole.CAREGIVER);
+        String otherToken = "Bearer " + jwt.create(other);
+        String joinBody = json.writeValueAsString(java.util.Map.of("inviteCode", code));
+        String disconnectPath = "/api/children/" + id + "/parents/" + other.getId();
+
+        mvc.perform(post("/api/children/join").header("Authorization", otherToken)
+                .contentType("application/json").content(joinBody))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.inviteCode").doesNotExist());
+        mvc.perform(post("/api/growth-records").header("Authorization", token)
+                .contentType("application/json").content("{\"patientId\":\"" + id + "\",\"measuredOn\":\"2025-01-01\",\"heightCm\":80}"))
+                .andExpect(status().isCreated());
+        mvc.perform(get("/api/growth-records").param("patientId", id).header("Authorization", otherToken))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(get("/api/children/" + id + "/parents").header("Authorization", token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.canDisconnect == true)].userId").value(other.getId().toString()));
+        mvc.perform(delete(disconnectPath).header("Authorization", otherToken)).andExpect(status().isForbidden());
+        mvc.perform(delete(disconnectPath).header("Authorization", token)).andExpect(status().isNoContent());
+        mvc.perform(delete(disconnectPath).header("Authorization", token)).andExpect(status().isNoContent());
+
+        em.flush();
+        em.clear();
+        mvc.perform(get("/api/children").header("Authorization", otherToken))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        for (String path : new String[]{"/api/growth-records", "/api/visits", "/api/documents", "/api/health-records"}) {
+            mvc.perform(get(path).param("patientId", id).header("Authorization", otherToken))
+                    .andExpect(status().isForbidden());
+        }
+        mvc.perform(post("/api/children/join").header("Authorization", otherToken)
+                .contentType("application/json").content(joinBody)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/growth-records").param("patientId", id).header("Authorization", token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(get("/api/children").header("Authorization", token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].parentCount").value(1))
+                .andExpect(jsonPath("$[0].inviteCode").value(org.hamcrest.Matchers.not(code)));
+    }
+
     private String body(String gender) {
         return "{\"name\":\"박도윤\",\"birthDate\":\"2024-01-01\"" + gender + "}";
     }
