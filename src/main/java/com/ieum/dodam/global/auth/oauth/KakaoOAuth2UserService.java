@@ -54,19 +54,16 @@ public class KakaoOAuth2UserService extends DefaultOAuth2UserService {
         return String.valueOf(id);
     }
 
-    @SuppressWarnings("unchecked")
     static String nickname(OAuth2User oauthUser) {
-        Object properties = oauthUser.getAttribute("properties");
-        if (properties instanceof Map<?, ?> map && map.get("nickname") != null) {
-            return String.valueOf(map.get("nickname"));
-        }
         Object account = oauthUser.getAttribute("kakao_account");
-        if (account instanceof Map<?, ?> accountMap) {
-            Object profile = accountMap.get("profile");
-            if (profile instanceof Map<?, ?> profileMap && profileMap.get("nickname") != null) {
-                return String.valueOf(profileMap.get("nickname"));
-            }
+        if (account instanceof Map<?, ?> accountMap && accountMap.get("profile") instanceof Map<?, ?> profile
+                && profile.get("nickname") instanceof String name && !name.isBlank()) {
+            return name.trim();
         }
-        return "이용자";
+        Object properties = oauthUser.getAttribute("properties");
+        if (properties instanceof Map<?, ?> legacy && legacy.get("nickname") instanceof String name && !name.isBlank()) {
+            return name.trim();
+        }
+        return null;
     }
 }

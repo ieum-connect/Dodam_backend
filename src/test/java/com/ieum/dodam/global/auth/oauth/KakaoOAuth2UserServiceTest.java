@@ -40,10 +40,19 @@ class KakaoOAuth2UserServiceTest {
     }
 
     @Test
-    void fallsBackWhenNicknameMissing() {
+    void prefersCurrentProfileToLegacyProperties() {
+        OAuth2User user = oauthUser(Map.of("id", 12345L,
+                "properties", Map.of("nickname", "예전 닉네임"),
+                "kakao_account", Map.of("profile", Map.of("nickname", " 새 닉네임 "))));
+
+        assertThat(KakaoOAuth2UserService.nickname(user)).isEqualTo("새 닉네임");
+    }
+
+    @Test
+    void returnsNoNicknameWhenPermissionDataIsMissing() {
         OAuth2User user = oauthUser(Map.of("id", 12345L));
 
-        assertThat(KakaoOAuth2UserService.nickname(user)).isEqualTo("이용자");
+        assertThat(KakaoOAuth2UserService.nickname(user)).isNull();
     }
 
     private static OAuth2User oauthUser(Map<String, Object> attributes) {
