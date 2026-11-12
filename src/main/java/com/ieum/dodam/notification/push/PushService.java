@@ -47,7 +47,9 @@ public class PushService {
         var schedule=schedules.findById(delivery.getScheduleId()).orElse(null);
         if(!eligible(delivery,device,schedule,now)) { delivery.finish("SKIPPED"); return true; }
         PushSender.Result result;
-        try { result=transport.send(device.getToken(),delivery.getNotificationId()); }
+        var reminder = new PushSender.Reminder(delivery.getNotificationId(), schedule.getScheduleType(),
+            device.isShowDetails() ? schedule.getTitle() : null);
+        try { result=transport.send(device.getToken(),reminder); }
         catch(RuntimeException e) { result=PushSender.Result.RETRY; }
         switch(result) {
             case SENT -> delivery.finish("SENT");

@@ -99,7 +99,8 @@ class CareRelationServiceTest {
     void withdrawnPatientInviteCodeIsRejected() {
         UserAccountService accounts = new UserAccountService(users, patients);
         CareRelationCommandService cares = new CareRelationCommandService(relations, patients, users, org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
-        UserWithdrawalService withdrawals = new UserWithdrawalService(users, patients, relations);
+        UserWithdrawalService withdrawals = new UserWithdrawalService(users, patients, relations,
+                org.mockito.Mockito.mock(com.ieum.dodam.global.auth.oauth.KakaoUnlinkClient.class));
         User patient = accounts.chooseRole(
                 accounts.loginOrRegister("kakao-soonja", "김순자").getKakaoId(),
                 UserRole.PATIENT

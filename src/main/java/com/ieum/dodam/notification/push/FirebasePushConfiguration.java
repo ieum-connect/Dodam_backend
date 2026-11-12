@@ -21,13 +21,18 @@ public class FirebasePushConfiguration {
     }
     @Bean PushSender firebasePushSender(FirebaseApp app) {
         var messaging=FirebaseMessaging.getInstance(app);
-        return (token,id) -> {
+        return (token,reminder) -> {
             try {
-                messaging.send(Message.builder().setToken(token)
-                    .putData("notificationId",id.toString())
+                var message = Message.builder().setToken(token)
+                    .putData("notificationId",reminder.notificationId().toString())
                     .putData("kind","dodam-reminder")
-                    .setWebpushConfig(WebpushConfig.builder().putHeader("TTL","900")
-                        .build()).build());
+                    .putData("scheduleType",reminder.scheduleType().name())
+                    .setWebpushConfig(WebpushConfig.builder()
+                        .putHeader("TTL", "900")
+                        .putHeader("Urgency", "high")
+                        .build());
+                if (reminder.title() != null) message.putData("title", reminder.title());
+                messaging.send(message.build());
                 return PushSender.Result.SENT;
             } catch(FirebaseMessagingException e) {
                 // Never log tokens, payloads or SDK exception messages.

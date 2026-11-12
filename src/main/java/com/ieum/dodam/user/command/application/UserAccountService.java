@@ -17,6 +17,7 @@ import java.security.SecureRandom;
 public class UserAccountService {
 
     private static final String INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final String DEFAULT_DISPLAY_NAME = "이용자";
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final UserRepository users;
@@ -32,14 +33,16 @@ public class UserAccountService {
         if (kakaoId == null || kakaoId.isBlank()) {
             throw new BusinessException(UserErrorCode.KAKAO_ID_REQUIRED);
         }
-        String name = (nickname == null || nickname.isBlank()) ? "이용자" : nickname.trim();
+        String name = (nickname == null || nickname.isBlank()) ? null : nickname.trim();
         return users.findByKakaoId(kakaoId).map(existing -> {
-            // Keep the display name edited in Dodam across Kakao sign-ins.
+            if (name != null && DEFAULT_DISPLAY_NAME.equals(existing.getName())) {
+                existing.setName(name);
+            }
             return existing;
         }).orElseGet(() -> {
             User created = new User();
             created.setKakaoId(kakaoId);
-            created.setName(name);
+            created.setName(name == null ? DEFAULT_DISPLAY_NAME : name);
             created.setRole(UserRole.PENDING);
             created.setStatus(UserStatus.ACTIVE);
             return users.save(created);

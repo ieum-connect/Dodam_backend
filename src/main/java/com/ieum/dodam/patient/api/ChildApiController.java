@@ -22,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 
 @RestController
@@ -29,6 +30,7 @@ import java.util.*;
 public class ChildApiController {
     private static final String ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private final PatientRepository patients;
     private final CareRelationRepository relations;
     private final UserRepository users;
@@ -152,14 +154,15 @@ public class ChildApiController {
     }
 
     private void validate(ChildRequest request) {
+        LocalDate today = LocalDate.now(SEOUL);
         if (request != null && request.gender() != null
                 && !Set.of("MALE", "FEMALE").contains(request.gender())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "성별을 확인해 주세요.");
         }
         if (request == null || request.name() == null || request.name().isBlank()
                 || request.name().trim().length() > 100 || request.birthDate() == null
-                || request.birthDate().isAfter(LocalDate.now())
-                || request.birthDate().isBefore(LocalDate.now().minusYears(19))) {
+                || request.birthDate().isAfter(today)
+                || request.birthDate().isBefore(today.minusYears(19))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "아이 이름과 19세 미만의 생년월일을 확인해 주세요.");
         }
     }

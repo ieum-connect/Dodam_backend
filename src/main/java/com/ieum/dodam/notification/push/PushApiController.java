@@ -25,7 +25,7 @@ public class PushApiController {
     @Value("${dodam.push.app-id:}") private String appId;
     @Value("${dodam.push.vapid-key:}") private String vapidKey;
     public PushApiController(PushDeviceRepository devices,UserQueryService users) { this.devices=devices; this.users=users; }
-    public record DeviceRequest(@NotBlank @Size(max=4096) String token) {}
+    public record DeviceRequest(@NotBlank @Size(max=4096) String token, Boolean showDetails) {}
     @GetMapping("/config") public Map<String,Object> config() {
         return Map.of("enabled",enabled,"apiKey",apiKey,"projectId",projectId,"messagingSenderId",senderId,"appId",appId,"vapidKey",vapidKey);
     }
@@ -34,7 +34,9 @@ public class PushApiController {
         if(!enabled) throw new BusinessException(PushErrorCode.PUSH_DISABLED);
         var userId=actor(principal); var id=hash(body.token());
         var device=devices.findById(id).orElseGet(()->new PushDevice(id,userId,body.token()));
-        device.bind(userId,body.token()); devices.save(device);
+        device.bind(userId,body.token());
+        if (body.showDetails() != null) device.changeDetailsVisibility(body.showDetails());
+        devices.save(device);
     }
     @DeleteMapping("/devices") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional
     public void unregister(@AuthenticationPrincipal OAuth2User principal,@Valid @RequestBody DeviceRequest body) {

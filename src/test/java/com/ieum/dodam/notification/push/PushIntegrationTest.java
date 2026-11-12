@@ -47,15 +47,37 @@ class PushIntegrationTest {
     @AfterEach void resetFlag() { ReflectionTestUtils.setField(controller,"enabled",false); }
     @Test void medicationAndAppointmentQueueExactlyOnceAndSend() {
         devices.save(new PushDevice("device",owner.getId(),"test-token"));
+        var detailedDevice = new PushDevice("detailed-device", owner.getId(), "detailed-token");
+        detailedDevice.changeDetailsVisibility(true);
+        devices.save(detailedDevice);
         var now=Instant.now();
         schedules.save(Schedule.create(patientId,null,ScheduleType.MEDICATION,"medicine",now.minusSeconds(2)));
         schedules.save(Schedule.create(patientId,null,ScheduleType.REVISIT,"appointment",now.minusSeconds(1)));
         reminders.deliverDue(now); reminders.deliverDue(now);
-        assertEquals(2,deliveries.count());
+        assertEquals(4,deliveries.count());
+        assertTrue(push.deliverOne(now.plusSeconds(1))); assertTrue(push.deliverOne(now.plusSeconds(1)));
         assertTrue(push.deliverOne(now.plusSeconds(1))); assertTrue(push.deliverOne(now.plusSeconds(1)));
         assertFalse(push.deliverOne(now.plusSeconds(1)));
-        verify(sender,times(2)).send(eq("test-token"),any());
+        verify(sender).send(eq("test-token"),argThat(reminder -> reminder.scheduleType() == ScheduleType.MEDICATION && reminder.title() == null));
+        verify(sender).send(eq("test-token"),argThat(reminder -> reminder.scheduleType() == ScheduleType.REVISIT && reminder.title() == null));
+        verify(sender).send(eq("detailed-token"),argThat(reminder -> reminder.scheduleType() == ScheduleType.MEDICATION && "medicine".equals(reminder.title())));
+        verify(sender).send(eq("detailed-token"),argThat(reminder -> reminder.scheduleType() == ScheduleType.REVISIT && "appointment".equals(reminder.title())));
         assertTrue(deliveries.findAll().stream().allMatch(d->d.getStatus().equals("SENT")));
+    }
+    @Test void explicitDetailsPreferenceSurvivesReregistrationButDoesNotTransferToAnotherAccount() throws Exception {
+        var deviceId = PushApiController.hash("example");
+        register("{\"token\":\"example\",\"showDetails\":true}", owner);
+        register("{\"token\":\"example\"}", owner);
+        assertTrue(devices.findById(deviceId).orElseThrow().isShowDetails());
+        var other = accounts.chooseRole(accounts.loginOrRegister(UUID.randomUUID().toString(),"other").getKakaoId(),UserRole.CAREGIVER);
+        register("{\"token\":\"example\"}", other);
+        var device = devices.findById(deviceId).orElseThrow();
+        assertEquals(other.getId(), device.getUserId());
+        assertFalse(device.isShowDetails());
+    }
+    private void register(String json, User user) throws Exception {
+        mvc.perform(post("/api/push/devices").header("Authorization","Bearer "+jwt.create(user))
+                .contentType("application/json").content(json)).andExpect(status().isNoContent());
     }
     @Test void revokedTokenIsDisabledAndFailedSendRetries() {
         devices.save(new PushDevice("device",owner.getId(),"test-token"));

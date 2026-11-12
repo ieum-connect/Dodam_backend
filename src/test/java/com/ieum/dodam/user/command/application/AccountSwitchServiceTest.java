@@ -133,7 +133,8 @@ class AccountSwitchServiceTest {
         UserAccountService accounts = new UserAccountService(users, patients);
         AccountSwitchService switches = new AccountSwitchService(users, accounts);
         CareRelationCommandService cares = new CareRelationCommandService(relations, patients, users, org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
-        UserWithdrawalService withdrawals = new UserWithdrawalService(users, patients, relations);
+        var kakao = org.mockito.Mockito.mock(com.ieum.dodam.global.auth.oauth.KakaoUnlinkClient.class);
+        UserWithdrawalService withdrawals = new UserWithdrawalService(users, patients, relations, kakao);
         User personal = accounts.chooseRole(accounts.loginOrRegister("kakao-soonja", "김순자").getKakaoId(), UserRole.PATIENT);
         User myCaregiver = switches.switchTo("kakao-soonja", UserRole.CAREGIVER);
         User grandma = accounts.chooseRole(accounts.loginOrRegister("kakao-grandma", "박할머니").getKakaoId(), UserRole.PATIENT);
@@ -142,6 +143,7 @@ class AccountSwitchServiceTest {
         CareRelation caredByDaughter = cares.accept(personal, cares.request(daughter, accounts.patientInviteCode(personal)).getId());
 
         var result = withdrawals.withdraw(myCaregiver.getKakaoId(), true);
+        org.mockito.Mockito.verify(kakao).unlink("kakao-soonja");
 
         assertThat(result.revokedRelationCount()).isEqualTo(2);
         assertThat(personal.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
