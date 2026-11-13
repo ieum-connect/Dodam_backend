@@ -97,7 +97,8 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO schedules (id, patient_id, schedule_type, title, starts_at, status, notes) VALUES
     ('d0da0000-0000-4000-8000-000000000081', :'doyoon', 'REVISIT', '소아과 경과 확인 (시연)', CURRENT_DATE + TIME '15:00', 'SCHEDULED', '검진 후 경과 확인 예시'),
     ('d0da0000-0000-4000-8000-000000000082', :'doyoon', 'MEDICATION', '복용 시간 확인 (시연)', CURRENT_DATE + TIME '18:00', 'SCHEDULED', '가상 복약 일정'),
-    ('d0da0000-0000-4000-8000-000000000083', :'dayeon', 'REVISIT', '정기 검진 일정 확인 (시연)', CURRENT_DATE + TIME '16:00', 'SCHEDULED', '가상 정기 검진 일정')
+    ('d0da0000-0000-4000-8000-000000000083', :'dayeon', 'REVISIT', '정기 검진 일정 확인 (시연)', CURRENT_DATE + TIME '16:00', 'SCHEDULED', '가상 정기 검진 일정'),
+    ('d0da0000-0000-4000-8000-000000000084', :'dayeon', 'MEDICATION', '복약 알림 연습 (시연)', CURRENT_DATE + TIME '18:30', 'SCHEDULED', '가상 복약 일정')
 ON CONFLICT (id) DO UPDATE SET starts_at = EXCLUDED.starts_at
 WHERE schedules.status = 'SCHEDULED';
 
