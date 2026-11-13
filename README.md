@@ -167,6 +167,10 @@
 
 개발 절차: Issue 생성 → 브랜치 생성 → 개발 및 커밋 → PR 생성 → 코드 리뷰 → 승인 → 병합
 
+## 김민지 시연 계정
+
+다른 PC에서 같은 시연 환경을 준비하려면 [로컬 시연 데이터 초기화 안내](dummydata/showcase/README.md)를 따라 주세요.
+
 ## 할 일 승인과 캘린더 API
 
 - `GET /api/action-items?patientId={id}`: 접근 가능한 아이의 원본 문서가 남아 있는 후보를 조회합니다. 응답 필드는 `id`, `documentId`, `type`, `title`, `description`, `dueAt`, `approvalStatus`입니다. `approvalStatus=PENDING`이 승인 대기 상태입니다.
