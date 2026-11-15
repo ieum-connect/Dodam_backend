@@ -76,6 +76,7 @@ dodam:
     app-id: ${FIREBASE_APP_ID:}
     vapid-key: ${FIREBASE_VAPID_KEY:}
   demo-login: ${DEMO_LOGIN:false}
+  demo-showcase-only: ${DEMO_SHOWCASE_ONLY:false}
   frontend-origin: ${FRONTEND_ORIGIN:http://localhost:4173}
   welfare:
     gov24:
