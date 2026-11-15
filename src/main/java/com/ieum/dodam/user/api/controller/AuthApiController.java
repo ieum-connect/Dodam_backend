@@ -43,19 +43,22 @@ public class AuthApiController {
     private final AuthCookieService authCookies;
     private final String kakaoClientId;
     private final boolean demoLogin;
+    private final boolean demoShowcaseOnly;
 
     public AuthApiController(
             UserAccountService accounts,
             KakaoLoginSuccessHandler loginSuccess,
             AuthCookieService authCookies,
             @Value("${spring.security.oauth2.client.registration.kakao.client-id:unset}") String kakaoClientId,
-            @Value("${dodam.demo-login:false}") boolean demoLogin
+            @Value("${dodam.demo-login:false}") boolean demoLogin,
+            @Value("${dodam.demo-showcase-only:false}") boolean demoShowcaseOnly
     ) {
         this.accounts = accounts;
         this.loginSuccess = loginSuccess;
         this.authCookies = authCookies;
         this.kakaoClientId = kakaoClientId;
         this.demoLogin = demoLogin;
+        this.demoShowcaseOnly = demoShowcaseOnly;
     }
 
     @GetMapping("/api/auth/config")
@@ -103,6 +106,9 @@ public class AuthApiController {
     ) {
         if (!demoLogin) {
             throw new BusinessException(GlobalErrorCode.DEMO_LOGIN_DISABLED);
+        }
+        if (demoShowcaseOnly && !"MINJI".equals(request.getAccount()) && !"JIHUN".equals(request.getAccount())) {
+            throw new BusinessException(GlobalErrorCode.INVALID_REQUEST);
         }
         User user = request.getAccount() == null
                 ? accounts.ensureDemoUser(request.toUserRole())
