@@ -85,7 +85,7 @@ public class MedicalDocumentQueryService {
         Map<UUID, User> authorsById = authorsById(page);
         Map<UUID, MedicalDocumentAiStatusRow> aiStatusesById = aiStatusesById(page);
         List<MedicalDocumentView> items = page.stream()
-                .map(document -> toView(document, authorsById, aiStatusesById, null))
+                .map(document -> toView(document, authorsById, aiStatusesById, null, false))
                 .toList();
         String nextCursor = hasNext ? encodeCursor(page.get(page.size() - 1)) : null;
         return new MedicalDocumentPage(items, nextCursor);
@@ -99,7 +99,7 @@ public class MedicalDocumentQueryService {
         }
         String signedUrl = "/api/documents/" + document.getId() + "/original";
         List<MedicalDocument> single = List.of(document);
-        return toView(document, authorsById(single), aiStatusesById(single), signedUrl);
+        return toView(document, authorsById(single), aiStatusesById(single), signedUrl, accessPolicy.canDelete(me, document));
     }
 
     private UUID resolvePatientId(User me, UUID patientId) {
@@ -158,7 +158,8 @@ public class MedicalDocumentQueryService {
             MedicalDocument document,
             Map<UUID, User> authorsById,
             Map<UUID, MedicalDocumentAiStatusRow> aiStatusesById,
-            String signedUrl
+            String signedUrl,
+            boolean canReanalyze
     ) {
         User uploader = authorsById.get(document.getUploaderUserId());
         MedicalDocumentView.Author author = uploader == null
@@ -184,6 +185,7 @@ public class MedicalDocumentQueryService {
                 resultStatus,
                 document.getStatusChangedAt(),
                 retryable,
+                canReanalyze,
                 signedUrl,
                 document.getCreatedAt()
         );

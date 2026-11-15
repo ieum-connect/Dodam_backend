@@ -36,6 +36,7 @@ public class MedicalDocumentResponseMapper {
                 view.resultStatus(),
                 toKst(view.statusChangedAt()),
                 view.retryable(),
+                view.canReanalyze(),
                 view.signedUrl(),
                 toKst(view.createdAt())
         );

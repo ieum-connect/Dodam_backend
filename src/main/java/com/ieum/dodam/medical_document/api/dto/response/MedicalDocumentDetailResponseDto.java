@@ -27,6 +27,7 @@ public record MedicalDocumentDetailResponseDto(
         ResultStatus resultStatus,
         OffsetDateTime statusChangedAt,
         boolean retryable,
+        boolean canReanalyze,
         @JsonInclude(JsonInclude.Include.NON_NULL) String signedUrl,
         OffsetDateTime createdAt
 ) {

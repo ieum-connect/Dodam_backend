@@ -202,6 +202,17 @@ public class MedicalDocument {
         updatedAt = Instant.now();
     }
 
+    public boolean queuePrescriptionAnalysis(Instant now) {
+        if (status == DocumentStatus.UPLOADED || status == DocumentStatus.PROCESSING || isDeleted()
+                || (status != DocumentStatus.FAILED && declaredDocType == DeclaredDocumentType.PRESCRIPTION)) {
+            return false;
+        }
+        declaredDocType = DeclaredDocumentType.PRESCRIPTION;
+        status = DocumentStatus.UPLOADED;
+        statusChangedAt = now;
+        return true;
+    }
+
     /** 소프트 삭제합니다. 이미 삭제된 문서는 없는 문서로 취급합니다. */
     public void delete(Instant now) {
         if (isDeleted()) {

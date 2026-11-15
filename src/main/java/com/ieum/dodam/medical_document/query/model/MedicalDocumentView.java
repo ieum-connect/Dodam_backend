@@ -27,6 +27,7 @@ public record MedicalDocumentView(
         ResultStatus resultStatus,
         Instant statusChangedAt,
         boolean retryable,
+        boolean canReanalyze,
         String signedUrl,
         Instant createdAt
 ) {
