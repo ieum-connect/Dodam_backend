@@ -27,6 +27,7 @@ public class MedicalDocumentResponseMapper {
                 view.patientId(),
                 view.documentName(),
                 view.documentType(),
+                view.declaredDocType(),
                 view.visitedOn(),
                 new MedicalDocumentDetailResponseDto.Author(view.author().name(), view.author().role()),
                 view.documentStatus(),

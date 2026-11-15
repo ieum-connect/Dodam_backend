@@ -175,6 +175,7 @@ public class MedicalDocumentQueryService {
                 document.getPatientId(),
                 document.getFileName(),
                 document.getDocumentType(),
+                document.getDeclaredDocType(),
                 visitedOn,
                 author,
                 document.getStatus(),
