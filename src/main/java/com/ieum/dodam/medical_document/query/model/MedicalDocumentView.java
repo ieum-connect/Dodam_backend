@@ -4,6 +4,7 @@ import com.ieum.dodam.global.status.AiJobStatus;
 import com.ieum.dodam.global.status.DocumentStatus;
 import com.ieum.dodam.global.status.ResultStatus;
 import com.ieum.dodam.global.type.DocumentType;
+import com.ieum.dodam.medical_document.domain.DeclaredDocumentType;
 import com.ieum.dodam.medical_document.domain.EmbeddingStatus;
 
 import java.time.Instant;
@@ -17,6 +18,7 @@ public record MedicalDocumentView(
         UUID patientId,
         String documentName,
         DocumentType documentType,
+        DeclaredDocumentType declaredDocType,
         LocalDate visitedOn,
         Author author,
         DocumentStatus documentStatus,
@@ -25,6 +27,7 @@ public record MedicalDocumentView(
         ResultStatus resultStatus,
         Instant statusChangedAt,
         boolean retryable,
+        boolean canReanalyze,
         String signedUrl,
         Instant createdAt
 ) {

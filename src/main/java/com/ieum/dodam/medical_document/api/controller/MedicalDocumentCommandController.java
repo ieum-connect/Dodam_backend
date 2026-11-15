@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -70,6 +71,15 @@ public class MedicalDocumentCommandController {
                 file.getOriginalFilename(), readBytes(file))));
         HttpStatus status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
         return ResponseEntity.status(status).body(responseMapper.toUploadResponse(result));
+    }
+
+    @PostMapping("/api/documents/{documentId}/reanalyze-as-prescription")
+    public ResponseEntity<Map<String, UUID>> reanalyzeAsPrescription(
+            @AuthenticationPrincipal OAuth2User user,
+            @PathVariable UUID documentId
+    ) {
+        commands.reanalyzeAsPrescription(queries.requireUser(kakaoId(user)), documentId);
+        return ResponseEntity.accepted().body(Map.of("documentId", documentId));
     }
 
     @DeleteMapping("/api/documents/{documentId}")
