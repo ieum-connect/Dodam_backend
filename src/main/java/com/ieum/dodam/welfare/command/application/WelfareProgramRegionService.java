@@ -4,6 +4,7 @@ import com.ieum.dodam.welfare.domain.WelfareRegion;
 import com.ieum.dodam.welfare.domain.entity.WelfareProgram;
 import com.ieum.dodam.welfare.domain.entity.WelfareProgramRegion;
 import com.ieum.dodam.welfare.domain.repository.WelfareProgramRegionRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +32,8 @@ public class WelfareProgramRegionService {
     private final WelfareProgramRegionRepository regions;
     private final Clock clock;
 
+    // 생성자가 둘이므로 Spring이 주입에 쓸 생성자를 명시한다(다른 하나는 테스트용 Clock 주입).
+    @Autowired
     public WelfareProgramRegionService(WelfareProgramRegionRepository regions) {
         this(regions, Clock.systemUTC());
     }
