@@ -152,7 +152,8 @@ class ChildGenderIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
         mvc.perform(get("/api/children/" + id + "/parents").header("Authorization", token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.canDisconnect == true)].userId").value(other.getId().toString()));
-        mvc.perform(delete(disconnectPath).header("Authorization", otherToken)).andExpect(status().isForbidden());
+        mvc.perform(delete("/api/children/" + id + "/parents/" + patients.findChildOwnerById(UUID.fromString(id)).orElseThrow())
+                .header("Authorization", otherToken)).andExpect(status().isForbidden());
         mvc.perform(delete(disconnectPath).header("Authorization", token)).andExpect(status().isNoContent());
         mvc.perform(delete(disconnectPath).header("Authorization", token)).andExpect(status().isNoContent());
 
@@ -171,6 +172,33 @@ class ChildGenderIntegrationTest {
         mvc.perform(get("/api/children").header("Authorization", token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].parentCount").value(1))
                 .andExpect(jsonPath("$[0].inviteCode").value(org.hamcrest.Matchers.not(code)));
+    }
+
+    @Test
+    void invitedParentCanLeaveOnlyTheirOwnLink() throws Exception {
+        var child = json.readTree(mvc.perform(post("/api/children").header("Authorization", token)
+                .contentType("application/json").content(body("")))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+        String id = child.get("id").asText(), code = child.get("inviteCode").asText();
+        var invited = accounts.chooseRole(accounts.loginOrRegister(UUID.randomUUID().toString(), "초대 보호자").getKakaoId(), UserRole.CAREGIVER);
+        var sibling = accounts.chooseRole(accounts.loginOrRegister(UUID.randomUUID().toString(), "다른 가족").getKakaoId(), UserRole.CAREGIVER);
+        String invitedToken = "Bearer " + jwt.create(invited), siblingToken = "Bearer " + jwt.create(sibling);
+        String joinBody = json.writeValueAsString(java.util.Map.of("inviteCode", code));
+        for (String auth : new String[]{invitedToken, siblingToken}) {
+            mvc.perform(post("/api/children/join").header("Authorization", auth).contentType("application/json").content(joinBody))
+                    .andExpect(status().isOk());
+        }
+        mvc.perform(get("/api/children/" + id + "/parents").header("Authorization", invitedToken))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.canDisconnect == true)].userId").value(invited.getId().toString()));
+        mvc.perform(delete("/api/children/" + id + "/parents/" + sibling.getId()).header("Authorization", invitedToken))
+                .andExpect(status().isForbidden());
+        mvc.perform(delete("/api/children/" + id + "/parents/" + invited.getId()).header("Authorization", invitedToken))
+                .andExpect(status().isNoContent());
+        em.flush(); em.clear();
+        mvc.perform(get("/api/children").header("Authorization", invitedToken)).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get("/api/children/" + id + "/parents").header("Authorization", invitedToken)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/children/" + id + "/parents").header("Authorization", siblingToken)).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+        mvc.perform(post("/api/children/join").header("Authorization", invitedToken).contentType("application/json").content(joinBody)).andExpect(status().isNotFound());
     }
 
     private String body(String gender) {

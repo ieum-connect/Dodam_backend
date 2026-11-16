@@ -113,7 +113,7 @@ public class ChildApiController {
                 .map(link -> users.findById(link.getCaregiverId()).orElse(null))
                 .filter(Objects::nonNull)
                 .map(user -> new ParentResponse(user.getId(), user.getName(), user.getId().equals(me.getId()),
-                        ownerId.equals(me.getId()) && !ownerId.equals(user.getId())))
+                        !ownerId.equals(user.getId()) && (ownerId.equals(me.getId()) || user.getId().equals(me.getId()))))
                 .toList();
     }
 
@@ -123,10 +123,11 @@ public class ChildApiController {
     public void disconnectParent(@AuthenticationPrincipal OAuth2User principal, @PathVariable UUID id,
                                  @PathVariable UUID parentId) {
         User owner = parent(principal);
-        if (!childOwner(id).equals(owner.getId()) || owner.getId().equals(parentId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "아이를 등록한 보호자만 다른 보호자의 연결을 해제할 수 있습니다.");
+        UUID ownerId = childOwner(id);
+        if (ownerId.equals(parentId) || (!ownerId.equals(owner.getId()) && !owner.getId().equals(parentId))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인의 연결을 해제하거나 아이를 등록한 보호자가 다른 보호자의 연결을 해제할 수 있습니다.");
         }
-        var locked = users.findAllByIdForUpdate(List.of(owner.getId(), parentId));
+        var locked = users.findAllByIdForUpdate(List.of(ownerId, parentId));
         if (locked.stream().noneMatch(user -> user.getId().equals(owner.getId()) && user.getStatus() == UserStatus.ACTIVE)) {
             throw new BusinessException(UserErrorCode.USER_ALREADY_WITHDRAWN);
         }
