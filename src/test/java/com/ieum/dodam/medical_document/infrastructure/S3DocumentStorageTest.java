@@ -15,6 +15,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class S3DocumentStorageTest {
+    @Test void constructsProductionClientWithSpringManagedDependencies() {
+        S3DocumentStorage storage = new S3DocumentStorage("private-docs", "ap-southeast-2");
+        storage.close();
+    }
+
     @Test void storesEncryptedObjectAndReadsSameKey() {
         S3Client client = mock(S3Client.class);
         S3DocumentStorage storage = new S3DocumentStorage("private-docs", client, mock(S3Presigner.class));

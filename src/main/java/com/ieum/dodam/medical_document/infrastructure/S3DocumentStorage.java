@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
@@ -26,7 +27,8 @@ public class S3DocumentStorage implements DocumentStoragePort, OriginalDocumentS
     @org.springframework.beans.factory.annotation.Autowired
     public S3DocumentStorage(@Value("${dodam.storage.s3.bucket}") String bucket,
                              @Value("${dodam.storage.s3.region:ap-southeast-2}") String region) {
-        this(bucket, S3Client.builder().region(Region.of(region)).build(),
+        this(bucket, S3Client.builder().region(Region.of(region))
+                        .httpClientBuilder(UrlConnectionHttpClient.builder()).build(),
                 S3Presigner.builder().region(Region.of(region)).build());
     }
 
