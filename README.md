@@ -1,222 +1,662 @@
-# 💗 도담(Dodam) — 아이의 기록을 모아, 필요한 돌봄과 복지로 연결하는 가족 돌봄 플랫폼
+<div align="center">
+
+<img src="./docs/assets/dodam_logo_effect.gif" width="100%" alt="도담 애니메이션 배너" />
+
+# 도담 Backend
+
+### 아이의 기록을 잇고, 가족의 돌봄을 이어가는 도담 💗
+
+[Frontend](https://github.com/ieum-connect/Dodam_frontend) · [AI Backend](https://github.com/ieum-connect/Dodam_AI_backend)
+
+</div>
+
+---
+
+## 1. 🛠️ 기술 스택
 
 <div align="center">
 
-<!-- 서비스 대표 이미지가 준비되면 아래 src를 교체해 주세요. -->
-<img width="960" alt="도담 서비스 대표 이미지" src="https://github.com/user-attachments/assets/7db23169-dcb5-44e0-81e9-6b8d6ba75cd2">
+### ⚙️ Backend · Security
 
+![Java](https://img.shields.io/badge/Java_17-007396?style=for-the-badge&logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot_3.3-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
+![Spring Security](https://img.shields.io/badge/Spring_Security-6DB33F?style=for-the-badge&logo=springsecurity&logoColor=white)
+![OAuth2](https://img.shields.io/badge/OAuth2-Kakao_Login-FFCD00?style=for-the-badge&logo=kakao&logoColor=191919)
+![JWT](https://img.shields.io/badge/JWT-Cookie_Auth-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
 
----
+### 🗄️ Data · Storage
 
-## 🌼 1. 서비스 소개
+![Spring Data JPA](https://img.shields.io/badge/Spring_Data_JPA-6DB33F?style=for-the-badge&logo=spring&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL_16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![pgvector](https://img.shields.io/badge/pgvector-Vector_Search-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Flyway](https://img.shields.io/badge/Flyway-CC0200?style=for-the-badge&logo=flyway&logoColor=white)
+![AWS S3](https://img.shields.io/badge/AWS_Private_S3-569A31?style=for-the-badge&logo=amazons3&logoColor=white)
 
-> **도담은 아이의 건강·돌봄 기록을 한곳에 모으고, 그 기록을 근거로 우리 가족에게 필요한 복지 프로그램을 추천하며, 어려운 의료 문서를 AI가 보호자의 언어로 풀어 주는 영유아 돌봄 관리 서비스입니다.**
+### 🔗 Integration · Quality
 
-- 💡 **한 줄 정의** — 아이별 병원 방문·메모·예방접종·문서 기록을 모으고, 그 기록으로 복지를 추천하고 문서를 쉽게 설명해 주는 서비스
-- 👶 **대상 사용자** — 영유아·아동을 키우는 보호자(부모, 조부모 등 공동 양육자), 맞벌이·한부모·다자녀 가정
-- 🧭 **핵심 사용 흐름** — 아이 등록 → 병원 방문·육아 메모 작성 → 진료 문서 업로드 → AI 도담의 해설 확인 → 예방접종 일정 관리 → 우리 아이에게 맞는 복지 프로그램 추천 확인 → 신청 준비(조건·서류·기간)
-- 📐 **설계 원칙** — ① 모든 기록은 아이 단위로 묶인다 ② 추천과 해설에는 반드시 근거가 따라붙는다 ③ 확실하지 않은 내용은 단정하지 않는다
+![Firebase](https://img.shields.io/badge/Firebase_Cloud_Messaging-FFCA28?style=for-the-badge&logo=firebase&logoColor=20232A)
+![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Maven](https://img.shields.io/badge/Maven-C71A36?style=for-the-badge&logo=apachemaven&logoColor=white)
+![JUnit5](https://img.shields.io/badge/JUnit_5-25A162?style=for-the-badge&logo=junit5&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
 
----
+</div>
 
-## ❗ 2. 문제 인식과 해결 방식
+<details>
+<summary><b>🔎 기술을 어디에 사용하는지 보기</b></summary>
 
-도담이 풀려는 문제와, 그 문제를 **어떤 기능으로 어떻게 해결하는지** 정리했습니다.
+| 영역 | 기술 | 역할 |
+|---|---|---|
+| Application | Java 17 · Spring Boot 3.3 | REST API와 Domain Service 실행 |
+| Security | Spring Security · OAuth2 · JJWT | Kakao Login, 권한 검사와 Cookie 인증 |
+| Data | Spring Data JPA · PostgreSQL · pgvector | 서비스 데이터와 문서 Embedding 저장 |
+| Migration | Flyway | Version 기반 Database Schema 관리 |
+| Storage | Local Storage · AWS Private S3 | 의료 문서 원본과 변환 파일 보관 |
+| Integration | Firebase Admin · PDFBox · HTTP Client | Push, PDF 검증과 외부 서비스 연동 |
+| Quality | Maven · JUnit 5 · GitHub Actions | Build, 자동 Test와 Pull Request CI |
 
-### 2-1. 🔍 받을 수 있는 복지를 몰라서 놓칩니다
-
-**🙁 문제**
-- 복지 제도가 중앙부처·지자체·보건소·어린이집 공고 등 여러 곳에 흩어져 있습니다.
-- 같은 이름의 사업도 지역·소득·연령 기준이 달라 "우리 집이 대상인지" 판단하기 어렵습니다.
-- 신청 기간이 짧거나 선착순인 사업이 많아 "알고 있었는데 지났다"가 반복됩니다.
-
-**✅ 해결 — 복지 프로그램 맞춤 추천**
-- 아이의 나이·건강 상태·거주 지역과 가족 조건을 기준으로 해당 가능성이 높은 사업을 추려 보여 줍니다.
-- 각 사업마다 **대상 조건 · 지원 내용 · 신청 기간 · 준비 서류**를 함께 제공해 따로 검색할 필요를 없앱니다.
-- 추천 결과를 *지금 할 일 / 기간이 임박한 일 / 참고할 일* 로 나누고 알림으로 다시 상기시킵니다.
-- 해당되지 않는 사업은 **왜 해당되지 않는지**(지역 불일치, 연령 초과 등)까지 알려 불필요한 시도를 줄입니다.
-
-### 2-2. 🗂️ 아이의 기록이 여기저기 흩어져 있습니다
-
-**🙁 문제**
-- 진료 내용, 성장 기록, 예방접종, 문서가 병원 앱·종이 수첩·사진첩·메신저에 나뉘어 있습니다.
-- 복지 상담이나 재진 때마다 진단명·방문 일자·검사 결과를 다시 찾아 옮겨 적습니다.
-- 보호자마다 알고 있는 정보가 달라 누락과 중복이 생깁니다.
-
-**✅ 해결 — 병원 방문 기록 · 육아 메모 · 기록과 연결된 문서 업로드**
-- 병원 방문을 중심축으로 그날의 증상·진단·처방·메모·문서를 하나로 묶습니다.
-- 문서는 방문 기록에 연결해 업로드하므로, 나중에 "언제 무엇 때문에 받은 서류인지"가 항상 남습니다.
-- 보호자 연결 기능으로 가족이 같은 아이의 기록을 함께 보고, 연결된 보호자에게만 공개됩니다.
-
-### 2-3. 📄 받아 온 의료 문서를 이해하지 못한 채 보관만 합니다
-
-**🙁 문제**
-- 진료 기록지·검사 결과지의 용어가 어려워 무슨 뜻인지 모른 채 사진첩에 남습니다.
-- 인터넷 검색은 출처가 불분명하고 우리 아이의 상황과 맞지 않습니다.
-
-**✅ 해결 — 문서 분석과 AI 도담의 쉬운 설명**
-- 업로드한 문서를 페이지 단위로 분석해 요약·주요 수치·다음에 할 일로 나누어 쉬운 말로 정리합니다.
-- 설명의 각 항목이 **문서의 몇 페이지에서 나왔는지** 인용으로 연결해 원문을 바로 확인할 수 있습니다.
-- 근거가 부족하면 단정하지 않고 "확인 필요"로 표시하며, 진단·응급 판단은 하지 않고 의료기관 상담을 안내합니다.
-
-### 2-4. 💉 예방접종 일정은 챙기기 번거롭습니다
-
-**🙁 문제**
-- 표준 접종 일정이 연령별로 복잡하고, 아이가 둘 이상이면 각각 다른 시기를 관리해야 합니다.
-- 접종 여부가 수첩에만 남아 있어 다음 차수가 언제인지 매번 확인해야 합니다.
-
-**✅ 해결 — 예방접종 관리**
-- 아이의 생년월일을 기준으로 접종 항목과 차수별 권장 시기를 정리해 보여 줍니다.
-- 완료/예정/지연 상태를 한눈에 확인하고, 다가오는 접종은 알림으로 안내합니다.
+</details>
 
 ---
 
-## 🧸 3. 기능 소개
+## 2. ❗ Pain Point와 해결 방향
 
-| 기능 | 한 줄 설명 |
-| --- | --- |
-| 🎁 복지 프로그램 맞춤 추천 | 아이와 가족 조건에 맞는 복지 사업을 근거와 함께 추천 |
-| 📝 육아 메모 | 아이의 일상·증상·발달을 자유롭게 기록 |
-| 🏥 병원 방문 기록 | 진료 한 건을 증상·진단·처방 단위로 기록 |
-| 📎 문서 업로드 | 진료·검사 문서를 방문 기록에 연결해 보관 |
-| 🤖 AI 도담 문서 해설 | 업로드한 문서를 쉬운 말로 설명하고 원문 인용 제공 |
-| 💬 AI 도담 상담 채팅 | 기록과 문서를 근거로 한 질문·답변 |
-| 💉 예방접종 관리 | 연령별 접종 일정과 완료 여부 관리 |
-| 👨‍👩‍👧 보호자 연결 | 가족이 같은 아이의 기록을 공유 |
-| 🔔 알림 | 접종·복지 신청 기간·문서 분석 완료 안내 |
+도담 Backend가 해결하려는 문제를 **사용자가 겪는 불편 → 서버가 담당하는 해결 방식** 순서로 정리했습니다.
 
-### 3-1. 🎁 복지 프로그램 맞춤 추천
+<details open>
+<summary><b>🗂️ 아이의 건강·돌봄 기록이 여러 곳에 흩어져 있습니다</b></summary>
 
-아이의 연령·건강 상태·지역, 가족의 양육 형태를 조건으로 삼아 해당 가능성이 있는 복지 사업을 골라 줍니다. 각 사업은 대상 조건, 지원 내용, 신청 기간, 준비 서류가 함께 표시되고, **어떤 기록 때문에 추천되었는지** 근거가 붙습니다. 기간이 임박한 사업이 위로 올라오며, 조건에 맞지 않는 사업은 사유와 함께 따로 정리됩니다.
+### Pain Point
 
-### 3-2. 📝 육아 메모
+- 병원 방문, 검사 결과지, 육아 메모, 성장 기록과 일정이 종이·사진·메신저에 나뉩니다.
+- 재진이나 보호자 교대 때 필요한 기록을 다시 찾기 어렵고 중요한 정보가 빠질 수 있습니다.
+- 같은 내용을 여러 번 입력하거나 서로 다른 버전으로 보관하게 됩니다.
 
-아이의 하루를 자유롭게 적어 두는 기록입니다. 열이 난 시간, 잘 먹지 않은 날, 새로 할 수 있게 된 행동처럼 진료 기록에는 들어가지 않는 관찰을 남깁니다. 날짜와 아이 기준으로 정렬되어 다음 진료 때 "언제부터 그랬는지"를 바로 보여 줄 수 있고, AI 도담의 상담에서도 참고 자료로 쓰입니다.
+### Backend의 해결 방식
 
-### 3-3. 🏥 병원 방문 기록
+- 모든 기록을 <code>아이(patient)</code> 기준으로 연결합니다.
+- 방문, 건강 기록, 성장, 문서, 일정과 예방접종을 각각의 Domain으로 관리하고 Timeline으로 조합합니다.
+- Validation, Idempotency, Transaction과 Lock으로 중복 저장과 일부 저장을 줄입니다.
 
-병원에 다녀온 한 번을 하나의 기록으로 남깁니다. 방문일, 의료기관, 진료과, 증상, 진단명, 처방, 다음 방문 예정일을 기록하고 그날 받은 문서를 여기에 붙입니다. 방문 기록이 쌓이면 아이의 진료 이력이 시간순으로 정리되어, 재진이나 다른 병원 방문 시 그대로 보여 줄 수 있습니다.
+</details>
 
-### 3-4. 📎 기록과 연결된 문서 업로드
+<details>
+<summary><b>👨‍👩‍👧 여러 보호자가 함께 돌볼 때 권한과 정보가 어긋납니다</b></summary>
 
-진료 기록지, 검사 결과지, 소견서, 접종 확인서 같은 문서를 PDF·이미지로 올립니다. 문서는 항상 특정 아이와 특정 방문 기록에 연결되므로 맥락을 잃지 않습니다. 업로드된 문서는 페이지 단위로 분리·저장되어 AI 해설과 상담의 근거 자료가 되며, 연결된 보호자만 열람할 수 있습니다.
+### Pain Point
 
-### 3-5. 🤖 문서 분석을 통한 AI 도담의 쉬운 설명
+- 여러 보호자가 같은 아이를 돌보지만 각자 알고 있는 정보가 다를 수 있습니다.
+- URL이나 ID만으로 기록을 조회할 수 있다면 민감한 건강 정보가 노출될 수 있습니다.
+- 연결 상태가 명확하지 않으면 누가 접근 가능한지 알기 어렵습니다.
 
-업로드한 문서를 자동으로 분석해 **요약 / 주요 수치 / 눈여겨볼 점 / 다음에 할 일** 등의 섹션으로 정리하고, 의료 용어를 보호자가 쓰는 말로 바꿔 설명합니다. 각 설명 항목에는 원문 페이지 인용이 붙어 있어 바로 대조해 볼 수 있습니다. 문서에서 확인되지 않은 내용은 추측하지 않고 "확인 필요"로 표시하며, 진단이나 응급 여부 판단은 하지 않고 의료기관 상담을 권합니다.
+### Backend의 해결 방식
 
-### 3-6. 💬 AI 도담 상담 채팅
+- Kakao OAuth2 로그인과 JWT Cookie로 사용자를 식별합니다.
+- 아이 관련 API마다 본인 Profile 또는 <code>ACTIVE</code> 보호자 관계를 확인합니다.
+- 보호자 연결을 요청 → 수락·거절 → 연결 해제의 상태 흐름으로 관리합니다.
 
-"이 검사 수치가 무슨 뜻인가요", "다음 접종은 언제인가요" 같은 질문에, 등록된 기록과 문서를 근거로 답합니다. 대화는 세션 단위로 저장되어 이어서 물어볼 수 있고, 답변에는 근거가 된 기록·문서가 함께 표시됩니다.
+</details>
 
-### 3-7. 💉 예방접종 관리
+<details>
+<summary><b>📄 의료 문서는 어렵고, AI 답변은 근거가 없으면 믿기 어렵습니다</b></summary>
 
-아이의 생년월일을 기준으로 접종 항목과 차수별 권장 시기를 정리해 보여 줍니다. 접종 완료 여부를 기록하면 지난 접종과 남은 접종이 구분되고, 다가오는 접종은 알림으로 안내합니다. 접종 확인서를 문서로 올려 두면 기록과 함께 보관됩니다.
+### Pain Point
 
-### 3-8. 👨‍👩‍👧 보호자 연결
+- 검사 결과지와 처방전은 용어가 어려워 보호자가 이해하기 어렵습니다.
+- 범용 AI에 직접 올리면 아이별 권한, 원문 보관과 답변 출처를 관리하기 어렵습니다.
+- 분석 실패나 같은 파일 재전송으로 결과가 중복될 수 있습니다.
 
-한 아이를 돌보는 여러 보호자가 같은 기록을 볼 수 있도록 초대 → 수락/거절 → 연결 해제까지 관리합니다. 연결된 보호자만 해당 아이의 기록과 문서에 접근할 수 있으며, 누가 기록했는지도 함께 남습니다.
+### Backend의 해결 방식
 
-### 3-9. 🔔 알림
+- 원본을 검증해 Local Storage 또는 비공개 S3에 저장하고 처리 상태를 관리합니다.
+- Frontend 대신 내부 Token으로 AI Backend에 분석과 상담을 요청합니다.
+- AI 설명·Citation·할 일 후보를 원본 문서 ID와 연결합니다.
+- Content Hash, Idempotency Key, 분석 상태와 재시도로 중복과 실패를 제어합니다.
 
-예방접종 시기, 복지 사업 신청 기간 임박, 문서 분석 완료, 보호자 연결 요청 등을 알림으로 전달합니다. 읽음·전체 읽음 처리를 지원합니다.
+</details>
+
+<details>
+<summary><b>📅 복약·재진·예방접종 일정을 놓치기 쉽습니다</b></summary>
+
+### Pain Point
+
+- 문서 속 복약 시간과 다음 방문일을 다시 옮기는 과정에서 누락이 생깁니다.
+- 반복 복약과 예방접종은 아이마다 시기가 달라 수동 관리가 번거롭습니다.
+- AI가 잘못 읽은 내용을 바로 일정으로 등록하면 위험할 수 있습니다.
+
+### Backend의 해결 방식
+
+- AI 추출 일정은 바로 저장하지 않고 <code>승인 대기 후보</code>로 보관합니다.
+- 보호자가 확인하고 승인한 항목만 실제 일정으로 생성합니다.
+- 단일 일정, 반복 복약, 완료·취소와 변경 이력을 관리합니다.
+- 예정 시간이 지나면 중복 없이 앱 알림을 만들고 선택적으로 Firebase Push를 전송합니다.
+
+</details>
+
+<details>
+<summary><b>🎁 우리 가족에게 맞는 복지 제도를 찾고 판단하기 어렵습니다</b></summary>
+
+### Pain Point
+
+- 복지 정보가 여러 기관에 흩어져 있고 지역·연령·가구 조건이 서로 다릅니다.
+- 많은 공고 중 신청 가능성이 있는 제도와 추천 이유를 판단하기 어렵습니다.
+
+### Backend의 해결 방식
+
+- 공공데이터를 복지 Catalog로 동기화하고 조건을 표준화합니다.
+- 아이·가구 Profile을 규칙에 대입해 대상 여부와 추천 근거를 계산합니다.
+- 추천 판정은 Spring이 담당하고 AI Backend는 확인된 근거를 쉽게 설명합니다.
+
+</details>
 
 ---
 
-## 🗂️ 4. 설계·산출물 문서
+## 3. ✨ 핵심 기능
 
-- ### ⚒️ erd
+| 기능 | 설명 |
+|---|---|
+| 🔐 인증·인가 | Kakao OAuth2, JWT HttpOnly Cookie, 역할과 아이 단위 권한 관리 |
+| 👶 아이·보호자 | 아이 Profile과 보호자 초대·수락·거절·연결 해제 |
+| 📝 건강·육아 기록 | 메모, 태그, 병원 방문과 성장 기록 관리 |
+| 📅 일정·복약 | 직접 일정, AI 후보 승인, 반복 복약, 완료·취소와 알림 |
+| 📄 의료 문서 | 파일 검증, 중복 방지, Local/S3 저장과 분석 상태 관리 |
+| 🤖 AI 연동 | 문서 분석, 근거 조회, AI 상담과 복지 설명 요청 중계 |
+| 💉 예방접종 | 아이별 접종 일정과 완료 여부 조회·변경 |
+| 🎁 복지 추천 | 복지 Catalog, 조건 판정, 추천과 관심 목록 |
+| 🔔 알림·Push | 시스템 알림, 일정 알림과 Firebase Web Push |
 
-  <details><summary>erd 이미지</summary>
-   <img width="4348" height="3627" alt="dodam_erd" src="https://github.com/user-attachments/assets/5ec8d122-fa74-4fdd-8c5c-96c117dbba52" />
+<details open>
+<summary><b>🔐 인증과 아이 단위 접근 권한</b></summary>
 
+1. Kakao OAuth2 또는 허용된 Demo Login으로 로그인합니다.
+2. JWT를 JavaScript가 읽을 수 없는 HttpOnly Cookie로 발급합니다.
+3. 역할과 계정을 선택한 뒤 아이 Profile 또는 보호자 관계를 확인합니다.
+4. 기록·문서·일정 API마다 접근 권한을 다시 검증합니다.
 
-- ### 📚 요구사항 명세서 및 기능명세서
-  **[요구사항명세서 및 기능명세서](https://docs.google.com/spreadsheets/d/1YeFHRiT_A57RUV32-Rc_4s0yvuSbJmtxSJgWke0_PMU/edit?usp=sharing)**
+> 로그인 성공만으로 모든 기록을 볼 수 없습니다. **인증된 사용자 + 해당 아이와의 관계**를 함께 확인합니다.
 
+</details>
 
+<details>
+<summary><b>📝 기록·방문·성장과 Timeline</b></summary>
 
-- ### 🖼️ 화면 설계서
-  **[화면설계서](https://claude.ai/artifact/B6hguHWy25YhYNA9KjNBhQ#page-dcb81aee8d83)**
-  
+- **육아 메모**: 일상, 증상과 발달 관찰을 날짜·태그와 함께 저장합니다.
+- **병원 방문**: 방문일, 병원, 진료 내용과 연결 문서를 한 진료 단위로 관리합니다.
+- **성장 기록**: 키와 몸무게를 검증하고 시점별로 저장합니다.
+- **Timeline**: 서로 다른 Domain의 기록을 아이와 시간 기준으로 묶습니다.
 
-- ### 📖 API 명세서
-  **[API 명세서](https://dodam-api-docs.yoohanse.chatgpt.site/)**
+</details>
 
+<details>
+<summary><b>📅 일정·반복 복약과 보호자 승인</b></summary>
+
+- AI 추출 결과는 승인 전까지 실제 일정이 아니며 거절하면 생성되지 않습니다.
+- 반복 복약은 종료일·요일을 포함한 Series 규칙으로 관리합니다.
+- 완료와 취소를 상태로 남겨 과거 기록을 보존합니다.
+- 일정 변경 시 Version으로 다른 요청의 변경을 덮어쓰지 않습니다.
+
+</details>
+
+<details>
+<summary><b>📄 문서 업로드·분석 상태와 원문 보호</b></summary>
+
+- PDF·JPG·PNG의 크기, MIME Type, Page 수와 Image Pixel 수를 검증합니다.
+- Idempotency Key와 Content Hash로 중복 생성을 방지합니다.
+- 개발은 Local Folder, 배포는 Private S3를 선택할 수 있습니다.
+- S3 원문은 공개하지 않고 접근 권한 확인 후 제공합니다.
+- 업로드 → 분석 중 → 완료·실패 상태를 저장합니다.
+
+</details>
+
+<details>
+<summary><b>🤖 AI 상담과 복지 추천</b></summary>
+
+- Spring이 상담 Session·Message를 사용자와 아이에 연결합니다.
+- AI에는 내부 Token과 권한이 확인된 문서 ID만 전달합니다.
+- Citation을 문서·Page·근거와 연결해 원문을 확인할 수 있게 합니다.
+- 복지 적합성은 Spring 규칙 Engine이 결정하고 AI는 근거를 쉽게 설명합니다.
+
+</details>
 
 ---
 
-## 🌱 5. 기대 효과
+### 🔄 핵심 서비스 Flow
 
-- 🎁 **놓치는 복지가 줄어듭니다.** 여러 기관 사이트를 돌지 않고 한 화면에서 대상 사업과 신청 기간을 확인할 수 있어, 자격이 되는데도 신청하지 못하는 누락을 줄입니다.
-- 🗂️ **기록이 흩어지지 않습니다.** 방문·메모·접종·문서가 아이 단위로 묶여, 재진이나 상담 때 필요한 정보를 다시 정리할 필요가 없습니다.
-- 👨‍👩‍👧 **보호자가 바뀌어도 돌봄이 이어집니다.** 연결된 보호자가 같은 기록을 보므로 전달 과정에서 생기는 누락과 중복이 사라집니다.
-- 🤖 **문서를 이해한 상태로 진료에 들어갑니다.** 어려운 용어를 미리 풀어 보고 질문을 준비할 수 있어, 짧은 진료 시간을 더 잘 쓸 수 있습니다.
-- ⏱️ **탐색에 쓰던 시간을 아이에게 돌립니다.** 검색과 서류 확인에 들어가던 시간을 줄여 돌봄 자체에 집중할 수 있습니다.
-- 📈 **쓸수록 정확해집니다.** 기록이 쌓일수록 추천과 상담의 근거가 풍부해져 서비스의 정확도와 사용 가치가 함께 올라갑니다.
+<details open>
+<summary><b>📄 문서 업로드 → AI 분석 → 근거 확인</b></summary>
+
+~~~mermaid
+sequenceDiagram
+    actor User as 👤 보호자
+    participant FE as 🎨 Frontend
+    participant BE as ⚙️ Spring Backend
+    participant FS as 📁 Local · S3
+    participant AI as 🤖 AI Backend
+    participant DB as 🗄️ PostgreSQL
+    User->>FE: 검사 결과지·처방전 선택
+    FE->>BE: multipart + Idempotency-Key
+    BE->>BE: 로그인·아이 권한·파일 검사
+    BE->>FS: 원본 저장
+    BE->>DB: 문서와 UPLOADED 상태 저장
+    BE->>AI: POST /internal/documents/{id}/analyze
+    AI-->>BE: 202 Accepted
+    AI->>FS: 원본 읽기
+    AI->>AI: Page 변환 · 추출 · 설명 · Embedding
+    AI->>DB: 근거·Citation·할 일 후보 저장
+    loop 완료까지 상태 조회
+        FE->>BE: 분석 상태 조회
+        BE-->>FE: PROCESSING / READY / FAILED
+    end
+    FE-->>User: 쉬운 설명과 원문 근거 표시
+~~~
+
+</details>
+
+<details>
+<summary><b>💬 문서 기반 AI 상담</b></summary>
+
+~~~mermaid
+sequenceDiagram
+    actor User as 👤 보호자
+    participant FE as 🎨 Frontend
+    participant BE as ⚙️ Spring Backend
+    participant AI as 🤖 AI Backend
+    participant DB as 🗄️ PostgreSQL · pgvector
+    User->>FE: 문서에 관해 질문
+    FE->>BE: Session Message 전송
+    BE->>BE: 아이·문서 권한 검사
+    BE->>DB: 질문 저장
+    BE->>AI: 질문 + patientId + 허용 documentIds
+    AI->>DB: 허용 범위 Vector Search
+    AI->>AI: 안전 분류 · 답변 · Citation 검증
+    AI-->>BE: 답변 + Citation
+    BE->>DB: 답변과 근거 연결
+    BE-->>FE: 저장된 답변 반환
+~~~
+
+</details>
+
+<details>
+<summary><b>📅 AI 추출 할 일 → 보호자 승인 → 일정 등록</b></summary>
+
+~~~mermaid
+flowchart LR
+    DOC["📄 문서 분석"] --> CANDIDATE["🧾 Action Item<br/>PENDING"]
+    CANDIDATE --> REVIEW{"👤 보호자 확인"}
+    REVIEW -->|승인| SCHEDULE["📅 일정 생성"]
+    REVIEW -->|거절| REJECTED["🚫 REJECTED 보존"]
+    SCHEDULE --> NOTICE["🔔 앱 알림 · Push"]
+    SCHEDULE --> DONE["✅ 완료"]
+    SCHEDULE --> CANCEL["🗑️ 취소 상태 보존"]
+~~~
+
+AI가 읽은 날짜는 **후보**입니다. 보호자가 원문을 확인하고 승인하기 전에는 실제 일정이 되지 않습니다.
+
+</details>
+
+<details>
+<summary><b>🎁 복지 동기화 → 조건 판정 → 추천 설명</b></summary>
+
+~~~mermaid
+flowchart LR
+    GOV["🏛️ 공공 복지 데이터"] --> SYNC["Catalog 동기화"]
+    SYNC --> NORMALIZE["지역 · 연령 · 소득 표준화"]
+    PROFILE["👶 아이·가구 Profile"] --> RULE["⚙️ Rule Engine"]
+    NORMALIZE --> RULE --> RESULT["추천 · 제외 · 판정 근거"]
+    RESULT --> AI["🤖 쉬운 설명"]
+    RESULT --> API["Spring API"]
+    AI --> API --> FE["🎨 추천 화면"]
+~~~
+
+</details>
 
 ---
 
-## 📚 팀 개발 컨벤션
+## 4. 🌱 기대 효과
 
-도담(DODAM) 프로젝트는 프론트엔드, Spring 백엔드, AI 백엔드가 공통 개발 컨벤션을 따릅니다.
+<details open>
+<summary><b>👨‍👩‍👧 사용자와 가족</b></summary>
 
-- [브랜치 컨벤션](docs/convention/BRANCH_CONVENTION.md)
-- [커밋 컨벤션](docs/convention/COMMIT_CONVENTION.md)
-- [PR 컨벤션](docs/convention/PR_CONVENTION.md)
+- **기록 탐색 시간이 줄어듭니다.** 아이별 기록과 문서를 한 흐름으로 조회합니다.
+- **보호자가 바뀌어도 돌봄이 이어집니다.** 연결된 가족이 같은 최신 정보를 확인합니다.
+- **일정 누락을 줄입니다.** 승인된 일정만 알림으로 이어집니다.
+- **AI 설명을 검증할 수 있습니다.** Page와 Citation으로 원문을 다시 확인합니다.
+- **복지 탐색 부담을 줄입니다.** 가족 조건에 맞는 사업과 추천 이유를 제공합니다.
 
-개발 절차: Issue 생성 → 브랜치 생성 → 개발 및 커밋 → PR 생성 → 코드 리뷰 → 승인 → 병합
+</details>
 
-## 김민지 시연 계정
+<details>
+<summary><b>🧑‍💻 개발과 운영</b></summary>
 
-다른 PC에서 같은 시연 환경을 준비하려면 [로컬 시연 데이터 초기화 안내](dummydata/showcase/README.md)를 따라 주세요.
+- **보안 경계가 명확합니다.** Spring에서 인증·인가하고 AI는 내부 API로 분리합니다.
+- **기능 확장이 쉽습니다.** Domain별 Package로 변경 영향 범위를 좁힙니다.
+- **데이터 변경을 추적합니다.** Flyway Migration과 상태 이력을 사용합니다.
+- **중복과 충돌을 줄입니다.** Idempotency, Transaction, Constraint와 Lock을 적용합니다.
+- **환경 전환이 쉽습니다.** Local Storage와 Private S3를 선택할 수 있습니다.
 
-## 할 일 승인과 캘린더 API
+</details>
 
-- `GET /api/action-items?patientId={id}`: 접근 가능한 아이의 원본 문서가 남아 있는 후보를 조회합니다. 응답 필드는 `id`, `documentId`, `type`, `title`, `description`, `dueAt`, `approvalStatus`입니다. `approvalStatus=PENDING`이 승인 대기 상태입니다.
-- `POST /api/action-items/{id}/approve`: 선택적으로 `{"startsAt":"2026-12-03T00:00:00Z"}`를 전달합니다. 시간이 없으면 후보의 `dueAt`을 사용하며, 둘 다 없으면 400을 반환합니다. 승인과 일정 생성은 하나의 트랜잭션으로 처리하며 반복 승인은 기존 일정을 반환합니다.
-- `POST /api/action-items/{id}/reject`: 후보를 거절하며 일정은 생성하지 않습니다. 반복 거절도 204를 반환합니다. 거절·취소된 후보를 승인하거나 승인된 후보를 거절하면 409를 반환합니다.
-- `GET /api/schedules?patientId={id}&from={ISO시각}&to={ISO시각}`: 시작 시각을 기준으로 `from` 이상, `to` 미만의 일정을 조회합니다. 조회 범위는 최대 92일이며 초과 요청은 400으로 거절합니다. 반복 복약의 해당 구간을 저장하는 쓰기 트랜잭션입니다. 더 긴 기간은 나누어 조회합니다.
-- `POST /api/schedules`: `patientId`, `title`(최대 200자), `scheduleType`, `startsAt`을 전달해 직접 등록합니다. 종류는 `MEDICATION`, `REVISIT`, `TEST`, `PERSONAL`, `OTHER`입니다.
+---
 
-현재 사용자의 본인 프로필 또는 ACTIVE 가족 관계가 있어야 조회·승인·등록할 수 있습니다. 시각은 시간대가 포함된 ISO 8601 형식으로 전달하며 화면은 사용자 기기의 현지 시각으로 표시합니다. 직접 등록한 일정의 `actionItemId`는 null입니다. 후보 한 건에서 생성되는 일정은 DB 유일 제약과 후보 행 잠금으로 한 건만 허용합니다. 원본 문서 삭제 후 승인 전 후보는 기존 삭제 이벤트에 의해 취소되고, 이미 승인한 일정은 보존됩니다. 접근 권한이 있으면 원본 삭제 후에도 이미 처리한 승인·거절의 재요청에 기존 결과를 반환합니다.
+## 5. 🧭 전체 시스템 아키텍처
 
-업로드 후 AI 서버의 `POST /internal/documents/{documentId}/analyze`로 분석을 요청합니다. AI 서버는 원본을 읽어 추출한 일정·복약·주의 항목을 문서와 연결된 `action_items`의 승인 대기 후보로 저장합니다. 문서 상태 완료와 후보 저장은 AI 서버의 같은 트랜잭션으로 처리합니다. 문서에 명시된 날짜·시간만 사용하며 날짜가 불명확하면 `due_at=null`로 남겨 보호자가 입력합니다. 승인 없이 `schedules`를 생성하지 않습니다. 반복 복약 일정과 앱 내 일정 알림은 아래 API로 관리합니다.
+> 도담은 **3개의 Code Repository와 공유 Infra**로 구성됩니다. Spring Backend가 인증·권한과 핵심 비즈니스 규칙을 책임지는 중앙 Hub입니다.
 
-일반 실행은 실제 AI 키와 모델 설정을 사용하는 AI 서버(`uvicorn app.main:app`)를 연결합니다. 키가 없는 로컬 연동 검증에서는 AI 저장소의 `python -m tests.manual_contract_server`가 고정 모델 응답을 반환하며, 이 실행은 실제 AI 판독 검증이 아닙니다. 테스트 화면은 `VITE_AI_TEST_MODE=true`로 예시 응답 표시를 켭니다. 두 서버는 동일한 도담 DB와 `AI_INTERNAL_TOKEN`을 사용합니다. 로컬 문서 저장소를 쓸 때는 `STORAGE_LOCAL_ROOT`도 공유합니다.
+~~~mermaid
+flowchart LR
+    USER["👨‍👩‍👧 보호자<br/>Mobile · Desktop"] --> FE
+    subgraph FE_REPO["🎨 Dodam_frontend · React PWA"]
+        FE["화면 · 사용자 경험"] --> CLIENT["API Client<br/>Cookie 인증"]
+        FE --> PWA["Service Worker<br/>Cache · Push"]
+    end
+    CLIENT -->|HTTPS · /api/*| BE
+    subgraph BE_REPO["⚙️ Dodam_backend · Spring Boot"]
+        BE["인증 · 권한 · API"] --> DOMAIN["아이 · 기록 · 일정 · 복지"]
+        BE --> DOC["문서 · AI 작업 중계"]
+        BE --> NOTICE["알림 · Push Outbox"]
+    end
+    DOC -->|Internal API<br/>X-Internal-Token| AI
+    subgraph AI_REPO["🤖 Dodam_AI_backend · FastAPI"]
+        AI["내부 AI API"] --> PIPE["문서 VLM Pipeline"]
+        PIPE --> RAG["Chunk · Embedding · RAG"]
+        RAG --> EXPLAIN["근거 기반 답변"]
+        AI --> VACCINE["예방접종 일정 Engine"]
+    end
+    BE --> DB[("🗄️ PostgreSQL · pgvector")]
+    AI --> DB
+    DOC --> STORAGE[("📁 Shared Storage<br/>Local · Private S3")]
+    PIPE --> STORAGE
+    BE --> KAKAO["🟡 Kakao OAuth2"]
+    BE --> GOV["🏛️ 공공 복지 API"]
+    NOTICE --> FCM["🔔 Firebase Cloud Messaging"] --> PWA
+    PIPE --> MODEL["☁️ VLM · LLM · Embedding API"]
+    RAG --> MODEL
+~~~
 
-### 운영 문서 저장소
+<details open>
+<summary><b>🔎 저장소별 책임과 통신 원칙</b></summary>
 
-비공개 S3를 사용하는 배포에서는 Spring 컨테이너에 `DODAM_STORAGE_PROVIDER=s3`, `DODAM_STORAGE_S3_BUCKET`, `DODAM_STORAGE_S3_REGION`을 함께 전달합니다. 실제 버킷 리전을 정확히 지정하고, AI 컨테이너에도 같은 버킷과 리전을 각각 `STORAGE_S3_BUCKET`, `STORAGE_S3_REGION`으로 전달한 뒤 `STORAGE_PROVIDER=s3`를 설정합니다. Spring과 AI 모두 S3 모드에서 버킷이나 리전이 비어 있으면 시작하지 않습니다. 로컬 모드에서는 `STORAGE_LOCAL_ROOT`를 사용하며 S3 설정은 필요하지 않습니다.
+| 구성 | 주요 책임 |
+|---|---|
+| 🎨 Frontend | 화면, 입력, 상태 표시, PWA와 Push 수신 |
+| ⚙️ Spring Backend | 인증·권한, Domain 규칙, 검증, AI 중계와 알림 |
+| 🤖 AI Backend | 문서 분석, RAG, Citation 답변, 복지 설명과 접종 계산 |
+| 🗄️ PostgreSQL | 서비스 데이터와 Vector 저장 |
+| 📁 Document Storage | 원본 의료 문서와 처리 Page 보관 |
 
-### 운영 인증 쿠키와 프록시
-- 도담 Compose 배포는 동일 출처에서 프런트 화면과 `/api/`, `/oauth2/`, `/login/oauth2/`, `/logout`을 제공합니다.
-- 인프라 저장소 `nginx/snippets/app.conf`와 `proxy.conf`에서 인증·API 요청을 백엔드로 전달하므로 현재 `SameSite=Lax`를 유지합니다.
-- 운영 HTTPS에서는 `JWT_COOKIE_SECURE=true`로 설정합니다. 현재 문서는 실제 Kakao 로그인 검증 완료를 뜻하지 않습니다.
-- 추후 서로 다른 사이트에 배포할 경우 `SameSite=None; Secure`, CORS 및 CSRF 방어를 함께 설계·검증해야 합니다.
-### 성장 기록 검증 범위
-- `NUMERIC(4,1)`은 저장 정밀도(최대 999.9)이며 서비스 허용 상한이 아닙니다.
-- 실제 허용 범위는 요청 DTO와 DB CHECK 모두 키 0.1~300.0cm, 몸무게 0.1~500.0kg입니다.
-- 상한 변경 시 DTO, 엔티티 정밀도, DB CHECK를 함께 검토하고 새 마이그레이션으로 변경합니다.
-### 반복 복약과 일정 알림
+1. Frontend는 Spring Backend만 호출합니다.
+2. Spring이 사용자 인증과 아이 접근 권한을 먼저 확인합니다.
+3. AI Backend는 내부 Token으로 보호합니다.
+4. 두 Backend는 같은 PostgreSQL과 문서 Storage 설정을 사용합니다.
+5. AI 결과도 Spring을 거쳐 사용자에게 전달됩니다.
 
-- `POST /api/schedule-batches`: `patientId`, 클라이언트 UUID `requestId`, `title`, `scheduleType`, `startsAt`, `notes`(선택, 최대 500자), `repeatDays`(1~31), `timeZone`(예: `Asia/Seoul`)을 받습니다. 2일 이상 반복은 MEDICATION만 허용하며 현지 시각을 유지해 매일 생성합니다. 같은 요청 ID와 내용의 재시도는 기존 일정을 반환하고, 내용이 바뀌면 409를 반환합니다.
-- `PUT /api/schedules/{id}`: 조회한 `version`과 `title`, `scheduleType`, `startsAt`, `notes`로 선택한 날짜의 예정 일정을 수정합니다. 다른 요청이 먼저 변경했거나 완료·취소된 경우 409입니다.
-- `POST /api/schedules/{id}/complete`: 예정 일정을 완료합니다.
-- `DELETE /api/schedules/{id}`: 예정 일정을 취소 상태로 보존합니다. 동일한 완료·취소의 재요청은 기존 결과를 반환합니다.
+</details>
 
-모든 변경에는 기존 아이 접근 권한을 적용합니다. 서버는 기본 15초마다 시간이 지난 예정 일정을 최대 100건 처리하고, 활성 소유자·연결 보호자에게 `SCHEDULE_DUE` 앱 내 알림을 저장합니다. 일정 행 잠금과 알림 처리 시각을 같은 트랜잭션으로 저장하여 중복 발송을 방지합니다. 완료·취소한 일정은 제외하고, 시작 시각을 변경하면 새 시각에 다시 알립니다. 마이그레이션 이전에 이미 지난 일정에는 소급 알림을 보내지 않습니다.
+---
 
-`DODAM_SCHEDULE_REMINDERS_ENABLED=false`로 자동 처리를 끌 수 있고 `DODAM_SCHEDULE_REMINDER_DELAY_MS`로 주기를 변경합니다. 운영체제 푸시·문자 발송은 포함하지 않습니다. 이 API와 알림 검증에는 AI 키가 필요하지 않습니다.
+## 6. 🧱 Code Architecture
 
+~~~text
+src/main/java/com/ieum/dodam
+├── global/              # Security, JWT, OAuth2, 공통 설정·예외
+├── user/                # 사용자 Profile, 역할, 계정 전환·탈퇴
+├── patient/             # 아이 Profile과 보호자 목록
+├── care_relation/       # 보호자 연결
+├── health_record/       # 육아·건강 메모와 Tag
+├── visit/ · growth/     # 병원 방문과 성장 기록
+├── medical_document/    # 문서 Upload·Storage·AI 분석 요청
+├── ai_result/ · ai_chat/ # AI 결과·근거와 상담
+├── action_item/         # 문서에서 추출된 승인 대기 후보
+├── schedule/            # 일정, 반복 복약과 Reminder
+├── vaccination/        # 예방접종 일정과 완료 Check
+├── welfare/             # 복지 Catalog·규칙·추천
+├── notification/        # 앱 알림, Firebase Push와 Outbox
+└── timeline/            # 기록을 시간순으로 조합
 
-### 종료일 지정·무기한 반복 및 메모 태그
+src/main/resources
+├── application.yml
+└── db/migration/        # Flyway Version Migration
+~~~
 
-- `POST /api/medication-series`: `patientId`, `requestId`(UUID), `title`, `notes`, `startsAt`, `timeZone`, `endDate`를 받습니다. `endDate=null`은 종료 없는 매일 반복입니다. 종료일은 포함하며 신규 시작일은 오늘 이후입니다.
-- `GET /api/medication-series?patientId={id}`: 반복 규칙을 조회합니다.
-- `POST /api/medication-series/{id}/stop`: 앞으로의 미완료 일정만 취소하고 반복을 중단합니다. 지난 일정과 완료 기록은 보존합니다. 이미 취소한 날짜를 다시 생성하지 않습니다.
-- 신규 화면은 규칙 API를 사용하므로 31일 기간 제한이 없습니다. 기존 batch API의 1~31일 제한은 구버전 호환용입니다. 규칙 전체 수정은 중단 후 재등록으로 처리하며 하루 한 시각을 지원합니다.
-- 무기한 일정을 한 번에 생성하지 않습니다. 최초 32일, 이후 조회 구간 및 주기 작업에서 필요한 구간만 생성합니다. 규칙 행 잠금과 날짜별 유일 제약으로 중복을 방지합니다.
-- `GET/POST /api/memo-tags`, `PUT/DELETE /api/memo-tags/{id}`: 아이별 가족 공용 태그를 조회·생성·수정·삭제합니다. 수정과 삭제는 조회한 `version`을 사용하며 삭제 버전은 query parameter입니다.
-- 메모 저장의 `tagIds`는 최대 10개입니다. 다른 아이의 태그는 연결할 수 없습니다. 태그 이름은 1~20자이며 아이별 중복을 허용하지 않습니다. 태그 삭제는 연결만 해제하고 메모 본문은 보존합니다.
-- 테스트 설정에는 AI 주소와 토큰을 빈 값으로 명시해 실제 모델 없이 전체 테스트를 실행합니다.
+<details open>
+<summary><b>🧩 Domain 내부 구성</b></summary>
+
+| 계층 | 역할 |
+|---|---|
+| api/controller | HTTP 요청과 인증 정보를 Application 계층에 전달 |
+| api/dto · mapper | 요청 검증, 응답과 Domain 변환 |
+| command/application | 생성·수정·삭제와 Transaction |
+| query/application | 조회 Use Case와 읽기 조합 |
+| domain/entity | 핵심 상태와 변경 규칙 |
+| domain/repository | 저장·조회 Contract |
+| infrastructure | 외부 HTTP, S3, Firebase와 JPA 구현 |
+| error | 기능별 오류 Code와 예외 |
+
+</details>
+
+---
+
+## 7. 📚 프로젝트 산출물
+
+| 산출물 | 설명 | 링크 |
+|---|---|---|
+| 📋 요구사항 명세서 | 기능 요구사항, 범위와 검증 기준 | [요구사항 명세서 열기](https://docs.google.com/spreadsheets/d/1Pi5tciZ795vPqvacpGjOlpbyNY47Vwr6-8HxIm9lkYI/edit?gid=305644033#gid=305644033) |
+| 📝 기획서 | 배경, 사용자 문제, 기능과 서비스 흐름 | [기획서 열기](https://docs.google.com/document/d/1-YzN9Gbwpwyt9RQgWLjE3HoCDPSbW14VlSZtkL0kwyA/edit?tab=t.0) |
+| 🖼️ 화면 설계서 | 화면과 사용자 상호작용 정의 | 🔗 추후 링크 추가 |
+| 🗃️ ERD | 핵심 Entity와 관계 | [ERD 열기](https://claude.ai/artifact/8c1WMx1Eji4CSEDgtes71e) |
+| 📡 API 명세서 | Frontend·Spring·AI Backend의 요청·응답 계약 | 🔗 추후 링크 추가 |
+
+---
+
+## 8. 🚀 Local 실행
+
+<details open>
+<summary><b>▶️ Database와 Backend 실행</b></summary>
+
+~~~bash
+cp .env.example .env
+docker compose up -d
+
+# Windows
+./mvnw.cmd spring-boot:run
+
+# macOS · Linux
+./mvnw spring-boot:run
+~~~
+
+기본 주소는 <code>http://localhost:8081</code>, Frontend는 <code>http://localhost:4173</code>입니다.
+
+</details>
+
+<details>
+<summary><b>🔗 세 저장소를 함께 실행할 때</b></summary>
+
+| Service | 기본 주소 | 역할 |
+|---|---|---|
+| Frontend | <code>http://localhost:4173</code> | 사용자 화면 |
+| Spring Backend | <code>http://localhost:8081</code> | 인증·권한과 핵심 API |
+| AI Backend | <code>http://localhost:8000</code> | 내부 AI API |
+| PostgreSQL | <code>localhost:5433</code> | 공유 Database |
+
+</details>
+
+---
+
+## 9. 🔐 환경 변수와 보안
+
+<details open>
+<summary><b>⚙️ 핵심 환경 변수</b></summary>
+
+~~~dotenv
+SERVER_PORT=8081
+FRONTEND_ORIGIN=http://localhost:4173
+DB_URL=jdbc:postgresql://127.0.0.1:5433/dodam
+DB_USER=dodam
+DB_PASSWORD=dodam_local
+JWT_SECRET=change-me-to-a-long-random-string-at-least-32
+KAKAO_CLIENT_ID=
+KAKAO_CLIENT_SECRET=
+AI_BASE_URL=http://localhost:8000
+AI_INTERNAL_TOKEN=
+DODAM_STORAGE_PROVIDER=local
+STORAGE_LOCAL_ROOT=./data/object-storage
+DODAM_STORAGE_S3_BUCKET=
+DODAM_STORAGE_S3_REGION=
+~~~
+
+전체 항목은 [.env.example](./.env.example)을 기준으로 확인합니다.
+
+</details>
+
+<details>
+<summary><b>🛡️ 운영 보안 Check</b></summary>
+
+- Secret, Password, Firebase Credential과 내부 Token을 Commit하지 않습니다.
+- 운영 HTTPS에서는 <code>JWT_COOKIE_SECURE=true</code>를 사용합니다.
+- Private S3 Bucket의 Public Access를 차단합니다.
+- 두 Backend는 충분히 긴 동일한 내부 Token을 사용합니다.
+- 의료 문서 원문은 사용자와 아이의 권한 확인 후 제공합니다.
+- Demo Login과 Debug 기능은 운영에서 비활성화합니다.
+
+</details>
+
+---
+
+## 10. ✅ Test와 검증
+
+<details open>
+<summary><b>🧪 실행 명령어</b></summary>
+
+~~~bash
+# Windows
+./mvnw.cmd verify
+
+# macOS · Linux
+./mvnw verify
+~~~
+
+</details>
+
+<details>
+<summary><b>📋 주요 검증 범위</b></summary>
+
+- JWT, OAuth2, Cookie와 Security Contract
+- 사용자·아이·보호자 관계와 접근 권한
+- 기록·방문·성장 CRUD
+- 문서 제한, 중복 처리, Local/S3와 원문 권한
+- AI 요청, 상담 Transaction과 Citation
+- 일정 승인·거절, 반복 복약과 알림
+- 예방접종과 복지 추천 규칙
+- Flyway Migration과 Database Constraint
+
+</details>
+
+---
+
+## 11. 🤝 개발 컨벤션
+
+<details open>
+<summary><b>🌿 Branch Convention과 구조</b></summary>
+
+[Branch Convention 전체 문서](./docs/convention/BRANCH_CONVENTION.md)
+
+~~~text
+main                         # 배포 가능한 안정 Branch
+ └─ develop                  # 기능 통합·검증 Branch
+     ├─ feat/12-short-name   # 새 기능
+     ├─ fix/18-short-name    # Bug 수정
+     ├─ refactor/23-name     # 구조 개선
+     ├─ docs/25-name         # 문서
+     ├─ test/29-name         # Test
+     └─ chore/31-name        # 설정·의존성·Data 정리
+
+hotfix/35-short-name         # main 기준 긴급 운영 수정
+ ├─ main 반영
+ └─ develop에도 동일 변경 반영
+~~~
+
+~~~text
+Branch 이름: <type>/<issue-number>-<short-kebab-case-description>
+예시: feat/12-child-care-memo-time
+~~~
+
+</details>
+
+<details>
+<summary><b>📝 Commit Convention과 구조</b></summary>
+
+[Commit Convention 전체 문서](./docs/convention/COMMIT_CONVENTION.md)
+
+~~~text
+<type>(<scope>): <english subject>
+
+<선택: 변경 이유와 구현 방식>
+<선택: Refs: #issue-number>
+~~~
+
+~~~text
+feat(health-record): persist selected record time
+fix(auth): prevent expired token reuse
+docs(readme): document backend architecture
+test(care-relation): cover invite acceptance conflict
+~~~
+
+- Type, Scope와 Subject는 영어로 작성합니다.
+- 하나의 Commit에는 하나의 논리적 변경만 담습니다.
+- 최종 Squash Commit 제목도 영어 Convention을 지킵니다.
+
+</details>
+
+<details>
+<summary><b>🔀 Pull Request Convention과 구조</b></summary>
+
+[Pull Request Convention 전체 문서](./docs/convention/PR_CONVENTION.md)
+
+~~~text
+PR 제목
+<type>(<scope>): <한국어 변경 내용>
+
+예시
+feat(health-record): 육아 메모 시간 선택 기능 추가
+~~~
+
+~~~markdown
+## 무엇을 구현했나요?
+- 사용자 또는 시스템 관점의 변경 사항
+
+## 참고할 사항
+- API·DB·환경 변수·연동 저장소 영향
+
+## 테스트
+- 실행한 명령과 수동 확인 결과
+- 테스트하지 못한 항목과 사유
+
+## 연결된 이슈
+- Closes #이슈번호
+~~~
+
+~~~text
+Issue 생성 → 최신 develop → 작업 Branch → Test
+          → develop 대상 PR → CI 통과 → 1명 이상 Approve
+          → Squash and merge → 작업 Branch 삭제
+~~~
+
+</details>
+
+---
+
+## 12. 🔗 도담 저장소 바로가기
+
+| 저장소 | 담당 영역 | 바로가기 |
+|---|---|---|
+| 🎨 Frontend | React 화면, PWA, 사용자 상호작용과 Push 수신 | [Dodam_frontend](https://github.com/ieum-connect/Dodam_frontend) |
+| ⚙️ Backend | 인증·권한, 핵심 Domain, 문서·AI 중계와 알림 | [Dodam_backend](https://github.com/ieum-connect/Dodam_backend) |
+| 🤖 AI Backend | 문서 분석, RAG, AI 상담, 복지 설명과 접종 일정 | [Dodam_AI_backend](https://github.com/ieum-connect/Dodam_AI_backend) |
+
+---
+
+<div align="center">
+
+### 아이의 기록과 가족의 돌봄을 안전하게 연결하는 도담 Backend ⚙️💗
+
+</div>
