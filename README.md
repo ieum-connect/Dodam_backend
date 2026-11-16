@@ -183,7 +183,11 @@
 
 업로드 후 AI 서버의 `POST /internal/documents/{documentId}/analyze`로 분석을 요청합니다. AI 서버는 원본을 읽어 추출한 일정·복약·주의 항목을 문서와 연결된 `action_items`의 승인 대기 후보로 저장합니다. 문서 상태 완료와 후보 저장은 AI 서버의 같은 트랜잭션으로 처리합니다. 문서에 명시된 날짜·시간만 사용하며 날짜가 불명확하면 `due_at=null`로 남겨 보호자가 입력합니다. 승인 없이 `schedules`를 생성하지 않습니다. 반복 복약 일정과 앱 내 일정 알림은 아래 API로 관리합니다.
 
-일반 실행은 실제 AI 키와 모델 설정을 사용하는 AI 서버(`uvicorn app.main:app`)를 연결합니다. 키가 없는 로컬 연동 검증에서는 AI 저장소의 `python -m tests.manual_contract_server`가 고정 모델 응답을 반환하며, 이 실행은 실제 AI 판독 검증이 아닙니다. 테스트 화면은 `VITE_AI_TEST_MODE=true`로 예시 응답 표시를 켭니다. 두 서버는 동일한 도담 DB와 `STORAGE_LOCAL_ROOT`를 사용하고 `AI_INTERNAL_TOKEN`이 일치해야 합니다.
+일반 실행은 실제 AI 키와 모델 설정을 사용하는 AI 서버(`uvicorn app.main:app`)를 연결합니다. 키가 없는 로컬 연동 검증에서는 AI 저장소의 `python -m tests.manual_contract_server`가 고정 모델 응답을 반환하며, 이 실행은 실제 AI 판독 검증이 아닙니다. 테스트 화면은 `VITE_AI_TEST_MODE=true`로 예시 응답 표시를 켭니다. 두 서버는 동일한 도담 DB와 `AI_INTERNAL_TOKEN`을 사용합니다. 로컬 문서 저장소를 쓸 때는 `STORAGE_LOCAL_ROOT`도 공유합니다.
+
+### 운영 문서 저장소
+
+비공개 S3를 사용하는 배포에서는 Spring 컨테이너에 `DODAM_STORAGE_PROVIDER=s3`, `DODAM_STORAGE_S3_BUCKET`, `DODAM_STORAGE_S3_REGION`을 함께 전달합니다. 실제 버킷 리전을 정확히 지정하고, AI 컨테이너에도 같은 버킷과 리전을 각각 `STORAGE_S3_BUCKET`, `STORAGE_S3_REGION`으로 전달한 뒤 `STORAGE_PROVIDER=s3`를 설정합니다. Spring과 AI 모두 S3 모드에서 버킷이나 리전이 비어 있으면 시작하지 않습니다. 로컬 모드에서는 `STORAGE_LOCAL_ROOT`를 사용하며 S3 설정은 필요하지 않습니다.
 
 ### 운영 인증 쿠키와 프록시
 - 도담 Compose 배포는 동일 출처에서 프런트 화면과 `/api/`, `/oauth2/`, `/login/oauth2/`, `/logout`을 제공합니다.
