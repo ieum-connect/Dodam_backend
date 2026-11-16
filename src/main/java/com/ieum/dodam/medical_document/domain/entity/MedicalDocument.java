@@ -3,6 +3,7 @@ package com.ieum.dodam.medical_document.domain.entity;
 import com.ieum.dodam.global.exception.BusinessException;
 import com.ieum.dodam.global.status.DocumentStatus;
 import com.ieum.dodam.global.type.DocumentType;
+import com.ieum.dodam.medical_document.domain.DeclaredDocumentType;
 import com.ieum.dodam.medical_document.error.MedicalDocumentErrorCode;
 import com.ieum.dodam.medical_document.domain.EmbeddingStatus;
 import jakarta.persistence.Column;
@@ -76,7 +77,7 @@ public class MedicalDocument {
     // 업로드할 때 사용자가 고른 유형이며, 분석으로 판별한 documentType과는 별개입니다.
     @Enumerated(EnumType.STRING)
     @Column(name = "declared_doc_type", length = 30)
-    private DocumentType declaredDocType;
+    private DeclaredDocumentType declaredDocType;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "document_type", nullable = false, length = 30)
@@ -149,7 +150,7 @@ public class MedicalDocument {
             long fileSizeBytes,
             String requestId,
             String idempotencyKey,
-            DocumentType declaredDocType,
+            DeclaredDocumentType declaredDocType,
             String contentSha256
     ) {
         MedicalDocument document = new MedicalDocument();
@@ -177,7 +178,7 @@ public class MedicalDocument {
         this.fileSizeBytes = fileSizeBytes;
     }
 
-    private void assignUploadRequest(String requestId, String idempotencyKey, DocumentType declaredDocType) {
+    private void assignUploadRequest(String requestId, String idempotencyKey, DeclaredDocumentType declaredDocType) {
         this.requestId = requestId;
         this.idempotencyKey = idempotencyKey;
         this.declaredDocType = declaredDocType;
@@ -199,6 +200,17 @@ public class MedicalDocument {
     @PreUpdate
     void onUpdate() {
         updatedAt = Instant.now();
+    }
+
+    public boolean queuePrescriptionAnalysis(Instant now) {
+        if (status == DocumentStatus.UPLOADED || status == DocumentStatus.PROCESSING || isDeleted()
+                || (status != DocumentStatus.FAILED && declaredDocType == DeclaredDocumentType.PRESCRIPTION)) {
+            return false;
+        }
+        declaredDocType = DeclaredDocumentType.PRESCRIPTION;
+        status = DocumentStatus.UPLOADED;
+        statusChangedAt = now;
+        return true;
     }
 
     /** 소프트 삭제합니다. 이미 삭제된 문서는 없는 문서로 취급합니다. */

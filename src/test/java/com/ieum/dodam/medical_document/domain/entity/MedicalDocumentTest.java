@@ -2,6 +2,7 @@ package com.ieum.dodam.medical_document.domain.entity;
 
 import com.ieum.dodam.global.status.DocumentStatus;
 import com.ieum.dodam.global.type.DocumentType;
+import com.ieum.dodam.medical_document.domain.DeclaredDocumentType;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -22,7 +23,7 @@ class MedicalDocumentTest {
         assertThat(document.getStorageKey()).isEqualTo(STORAGE_KEY);
         assertThat(document.getStatus()).isEqualTo(DocumentStatus.UPLOADED);
         assertThat(document.getDocumentType()).isEqualTo(DocumentType.UNKNOWN);
-        assertThat(document.getDeclaredDocType()).isEqualTo(DocumentType.LAB_RESULT);
+        assertThat(document.getDeclaredDocType()).isEqualTo(DeclaredDocumentType.LAB_RESULT);
         assertThat(document.getIdempotencyKey()).isEqualTo("idem-key-1");
     }
 
@@ -35,6 +36,6 @@ class MedicalDocumentTest {
         return MedicalDocument.uploadedWithId(
                 DOCUMENT_ID, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 "검사결과.pdf", STORAGE_KEY, "application/pdf", 1024L,
-                "request-1", "idem-key-1", DocumentType.LAB_RESULT, CONTENT_SHA256);
+                "request-1", "idem-key-1", DeclaredDocumentType.LAB_RESULT, CONTENT_SHA256);
     }
 }

@@ -5,6 +5,7 @@ import com.ieum.dodam.global.status.AiJobStatus;
 import com.ieum.dodam.global.status.DocumentStatus;
 import com.ieum.dodam.global.status.ResultStatus;
 import com.ieum.dodam.global.type.DocumentType;
+import com.ieum.dodam.medical_document.domain.DeclaredDocumentType;
 import com.ieum.dodam.medical_document.domain.EmbeddingStatus;
 
 import java.time.LocalDate;
@@ -17,6 +18,7 @@ public record MedicalDocumentDetailResponseDto(
         UUID patientId,
         String documentName,
         DocumentType documentType,
+        @JsonInclude(JsonInclude.Include.NON_NULL) DeclaredDocumentType declaredDocType,
         LocalDate visitedOn,
         Author author,
         DocumentStatus documentStatus,
@@ -25,6 +27,7 @@ public record MedicalDocumentDetailResponseDto(
         ResultStatus resultStatus,
         OffsetDateTime statusChangedAt,
         boolean retryable,
+        boolean canReanalyze,
         @JsonInclude(JsonInclude.Include.NON_NULL) String signedUrl,
         OffsetDateTime createdAt
 ) {

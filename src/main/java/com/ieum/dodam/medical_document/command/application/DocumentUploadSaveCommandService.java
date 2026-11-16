@@ -35,8 +35,12 @@ public class DocumentUploadSaveCommandService {
     @Transactional
     public MedicalDocument registerUpload(MedicalDocument document) {
         MedicalDocument saved = documents.saveAndFlush(document);
-        DocumentAnalysis analysis = analyses.save(DocumentAnalysis.queued(saved.getId(), parserVersion));
-        events.publishEvent(new DocumentUploadedEvent(saved.getId(), analysis.getId()));
+        queueAnalysis(saved);
         return saved;
+    }
+
+    void queueAnalysis(MedicalDocument document) {
+        DocumentAnalysis analysis = analyses.save(DocumentAnalysis.queued(document.getId(), parserVersion));
+        events.publishEvent(new DocumentUploadedEvent(document.getId(), analysis.getId()));
     }
 }

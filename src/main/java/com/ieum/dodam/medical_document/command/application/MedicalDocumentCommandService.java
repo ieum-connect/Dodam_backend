@@ -21,20 +21,33 @@ public class MedicalDocumentCommandService {
     private final MedicalDocumentRepository documents;
     private final MedicalDocumentAccessPolicy accessPolicy;
     private final ApplicationEventPublisher events;
+    private final DocumentUploadSaveCommandService analysisQueue;
 
     public MedicalDocumentCommandService(
             MedicalDocumentRepository documents,
             MedicalDocumentAccessPolicy accessPolicy,
-            ApplicationEventPublisher events
+            ApplicationEventPublisher events,
+            DocumentUploadSaveCommandService analysisQueue
     ) {
         this.documents = documents;
         this.accessPolicy = accessPolicy;
         this.events = events;
+        this.analysisQueue = analysisQueue;
+    }
+
+    @Transactional
+    public void reanalyzeAsPrescription(User me, UUID documentId) {
+        MedicalDocument document = documents.findForUpdate(documentId)
+                .filter(candidate -> !candidate.isDeleted() && accessPolicy.canDelete(me, candidate))
+                .orElseThrow(() -> new BusinessException(MedicalDocumentErrorCode.DOCUMENT_NOT_FOUND));
+        if (document.queuePrescriptionAnalysis(Instant.now())) {
+            analysisQueue.queueAnalysis(document);
+        }
     }
 
     @Transactional
     public void delete(User me, UUID documentId) {
-        MedicalDocument document = documents.findById(documentId)
+        MedicalDocument document = documents.findForUpdate(documentId)
                 .orElseThrow(() -> new BusinessException(MedicalDocumentErrorCode.DOCUMENT_NOT_FOUND));
         if (!accessPolicy.canDelete(me, document)) {
             throw new BusinessException(MedicalDocumentErrorCode.DOCUMENT_NOT_FOUND);
