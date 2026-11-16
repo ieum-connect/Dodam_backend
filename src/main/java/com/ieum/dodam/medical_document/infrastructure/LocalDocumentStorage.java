@@ -17,6 +17,7 @@ import java.time.Instant;
  * 로컬 파일시스템에 원본을 저장하는 구현입니다. S3 어댑터는 후속 이슈에서 추가합니다.
  */
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "dodam.storage.provider", havingValue = "local", matchIfMissing = true)
 public class LocalDocumentStorage implements DocumentStoragePort, com.ieum.dodam.medical_document.domain.OriginalDocumentStoragePort {
 
     private static final String DEFAULT_ROOT = "./data/object-storage";
