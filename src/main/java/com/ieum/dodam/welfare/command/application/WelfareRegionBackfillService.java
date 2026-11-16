@@ -12,6 +12,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -25,10 +26,13 @@ public class WelfareRegionBackfillService {
     private static final Logger log = LoggerFactory.getLogger(WelfareRegionBackfillService.class);
     private final WelfareProgramRepository programs;
     private final ChildWelfareProfileRepository profiles;
+    private final WelfareProgramRegionService regions;
 
-    public WelfareRegionBackfillService(WelfareProgramRepository programs, ChildWelfareProfileRepository profiles) {
+    public WelfareRegionBackfillService(WelfareProgramRepository programs, ChildWelfareProfileRepository profiles,
+                                        WelfareProgramRegionService regions) {
         this.programs = programs;
         this.profiles = profiles;
+        this.regions = regions;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -45,10 +49,16 @@ public class WelfareRegionBackfillService {
     public int backfill() {
         List<WelfareProgram> pending = programs.findByRegionScope(WelfareRegionScope.UNKNOWN);
         int updated = 0;
+        List<WelfareProgram> changed = new ArrayList<>();
         for (WelfareProgram program : pending) {
-            if (program.refreshRegion()) updated++;
+            if (program.refreshRegion()) {
+                changed.add(program);
+                updated++;
+            }
         }
         programs.saveAll(pending);
+        // 재판정으로 지역이 달라진 사업만 지역 테이블에 반영한다.
+        if (regions != null) changed.forEach(regions::sync);
         List<ChildWelfareProfile> staleProfiles = profiles.findByRegionProvinceIsNull();
         for (ChildWelfareProfile profile : staleProfiles) {
             if (profile.refreshRegion()) updated++;

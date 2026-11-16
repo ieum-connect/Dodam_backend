@@ -71,14 +71,30 @@ public class WelfareEligibilityEvaluator {
             new CareSetting("학교 재학", List.of("초등학교", "재학", "학교급식"))
     );
 
+    /** 제공 지역을 따로 주지 않으면 사업에 기록된 지역 하나로 판정한다. */
     public Evaluation evaluate(WelfareProgram program, ChildWelfareProfile profile, int ageMonths) {
+        return evaluate(program, List.of(program.region()), profile, ageMonths);
+    }
+
+    /**
+     * 사업이 제공하는 지역 목록을 받아 판정한다.
+     *
+     * <p>여러 지역 가운데 하나라도 거주지를 포함하면 지역 조건을 충족한 것으로 본다. 목록이 비어 있으면
+     * 병행 운용 중인 {@code welfare_programs}의 지역 컬럼으로 넘어간다.
+     */
+    public Evaluation evaluate(WelfareProgram program, List<WelfareRegion> programRegions,
+                               ChildWelfareProfile profile, int ageMonths) {
         String gateText = text(program.getName(), program.getTargetText(), program.getSelectionCriteriaText());
         String fullText = text(program.getName(), program.getPurposeSummary(), program.getPurposeDetail(),
                 program.getTargetText(), program.getSelectionCriteriaText(), program.getBenefitText());
         String programName = safe(program.getName());
         List<Condition> conditions = new ArrayList<>();
 
-        Condition region = evaluateRegion(program.region(), profile);
+        List<WelfareRegion> candidateRegions = programRegions == null || programRegions.isEmpty()
+                ? List.of(program.region())
+                : programRegions;
+        WelfareRegion programRegion = WelfareRegion.bestFor(candidateRegions, profile == null ? null : profile.region());
+        Condition region = evaluateRegion(programRegion, profile);
         if (region.status() == Status.UNMET) {
             return Evaluation.excluded("거주지역(" + describeRegion(profile) + ") 밖에서만 신청할 수 있는 사업이에요", region);
         }
