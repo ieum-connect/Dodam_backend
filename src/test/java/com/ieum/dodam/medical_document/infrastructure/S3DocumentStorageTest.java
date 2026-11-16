@@ -2,6 +2,10 @@ package com.ieum.dodam.medical_document.infrastructure;
 
 import com.ieum.dodam.medical_document.domain.DocumentStorageException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.ResponseBytes;
@@ -14,6 +18,7 @@ import java.time.Duration;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(OutputCaptureExtension.class)
 class S3DocumentStorageTest {
     @Test void constructsProductionClientWithSpringManagedDependencies() {
         S3DocumentStorage storage = new S3DocumentStorage("private-docs", "ap-southeast-2");
@@ -58,5 +63,18 @@ class S3DocumentStorageTest {
         S3DocumentStorage storage = new S3DocumentStorage("private-docs", client, mock(S3Presigner.class));
         when(client.getObjectAsBytes(any(GetObjectRequest.class))).thenThrow(NoSuchKeyException.builder().build());
         assertThrows(DocumentStorageException.class, () -> storage.readOriginal("missing.pdf"));
+    }
+
+    @Test void regionRedirectLogsSettingNameWithoutObjectKey(CapturedOutput output) {
+        S3Client client = mock(S3Client.class);
+        S3DocumentStorage storage = new S3DocumentStorage("private-docs", client, mock(S3Presigner.class));
+        AwsServiceException redirect = S3Exception.builder().statusCode(301).build();
+        when(client.getObjectAsBytes(any(GetObjectRequest.class))).thenThrow(redirect);
+
+        DocumentStorageException error = assertThrows(DocumentStorageException.class,
+                () -> storage.readOriginal("documents/private-original.pdf"));
+        assertSame(redirect, error.getCause());
+        assertTrue(output.getOut().contains("DODAM_STORAGE_S3_REGION"));
+        assertFalse(output.getAll().contains("private-original.pdf"));
     }
 }

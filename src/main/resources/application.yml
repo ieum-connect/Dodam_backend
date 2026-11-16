@@ -93,7 +93,11 @@ dodam:
       max-image-pixels: 40000000
       max-concurrent: 4
   storage:
+    provider: ${DODAM_STORAGE_PROVIDER:local}
     local-root: ${STORAGE_LOCAL_ROOT:./data/object-storage}
+    s3:
+      bucket: ${DODAM_STORAGE_S3_BUCKET:}
+      region: ${DODAM_STORAGE_S3_REGION:}
   ai:
     base-url: ${AI_BASE_URL:}
     internal-token: ${AI_INTERNAL_TOKEN:}
