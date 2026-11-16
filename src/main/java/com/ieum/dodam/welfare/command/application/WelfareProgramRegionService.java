@@ -78,8 +78,7 @@ public class WelfareProgramRegionService {
     /**
      * 사업별 제공 지역을 한 번에 읽는다.
      *
-     * <p>아직 행이 없는 사업은 결과에 담기지 않는다. 호출 측은 기존 {@code welfare_programs}의
-     * 지역 컬럼으로 넘어가도록 되어 있어, 병행 운용 기간에도 추천 결과가 비지 않는다.
+     * <p>아직 행이 없는 사업은 결과에 담기지 않는다. 정상 동기화된 사업에는 항상 한 행 이상 있다.
      */
     @Transactional(readOnly = true)
     public Map<UUID, List<WelfareRegion>> regionsOf(Collection<UUID> programIds) {

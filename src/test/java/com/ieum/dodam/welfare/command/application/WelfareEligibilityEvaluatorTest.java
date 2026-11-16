@@ -31,10 +31,13 @@ class WelfareEligibilityEvaluatorTest {
         }
 
         @Test
-        @DisplayName("시·도명이 빠진 다른 시·군·구 사업도 추천하지 않는다")
-        void excludesOtherDistrictWithoutProvincePrefix() {
-            assertThat(evaluator.evaluate(program("영광군 아동 지원", "영광군", "만 0세~5세 아동"),
-                    seoulGangdong, THIRTY_MONTHS).recommendable()).isFalse();
+        @DisplayName("시·도명이 빠진 시·군·구 사업은 오제외하지 않고 확인 필요로 남긴다")
+        void keepsOtherDistrictWithoutProvincePrefixUndetermined() {
+            Evaluation evaluation = evaluator.evaluate(program("영광군 아동 지원", "영광군", "만 0세~5세 아동"),
+                    seoulGangdong, THIRTY_MONTHS);
+
+            assertThat(evaluation.recommendable()).isTrue();
+            assertThat(status(evaluation, "REGION")).isEqualTo(Status.UNKNOWN);
         }
 
         @Test

@@ -1,21 +1,15 @@
 package com.ieum.dodam.welfare.domain.entity;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.ieum.dodam.welfare.domain.WelfareProgramSource;
 import com.ieum.dodam.welfare.domain.WelfareRegion;
 import com.ieum.dodam.welfare.domain.WelfareRegionResolver;
-import com.ieum.dodam.welfare.domain.WelfareRegionScope;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -57,12 +51,6 @@ public class WelfareProgram {
     @Column(name = "last_synced_at", nullable = false) private Instant lastSyncedAt;
     @Column(nullable = false) private boolean active;
     @Column(name = "child_candidate", nullable = false) private boolean childCandidate;
-    @Enumerated(EnumType.STRING) @Column(name = "region_scope", nullable = false, length = 20) private WelfareRegionScope regionScope = WelfareRegionScope.UNKNOWN;
-    @Column(name = "region_province", length = 40) private String regionProvince;
-    @Column(name = "region_district", length = 60) private String regionDistrict;
-    @JdbcTypeCode(SqlTypes.JSON) @Column(name = "raw_list_json", nullable = false, columnDefinition = "jsonb") private JsonNode rawListJson;
-    @JdbcTypeCode(SqlTypes.JSON) @Column(name = "raw_detail_json", nullable = false, columnDefinition = "jsonb") private JsonNode rawDetailJson;
-    @JdbcTypeCode(SqlTypes.JSON) @Column(name = "raw_condition_json", nullable = false, columnDefinition = "jsonb") private JsonNode rawConditionJson;
     @Column(name = "created_at", nullable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
 
@@ -95,42 +83,23 @@ public class WelfareProgram {
     }
 
     private void applyFields(WelfareProgramSource s, Instant now) {
-        name=s.name(); supportType=s.supportType(); purposeSummary=s.purposeSummary(); purposeDetail=s.purposeDetail();
+        name=s.name(); supportType=s.supportType(); purposeSummary=s.purposeSummary(); purposeDetail=prefer(s.purposeDetail(), purposeDetail);
         targetText=s.targetText(); selectionCriteriaText=s.selectionCriteriaText(); benefitText=s.benefitText();
         applicationMethod=s.applicationMethod(); applicationDeadline=s.applicationDeadline(); applicationDeadlineType=s.applicationDeadlineType();
-        requiredDocuments=s.requiredDocuments(); officialCheckDocuments=s.officialCheckDocuments(); identityCheckDocuments=s.identityCheckDocuments();
-        onlineApplicationUrl=s.onlineApplicationUrl(); detailUrl=s.detailUrl(); agencyCode=s.agencyCode(); agencyName=s.agencyName();
+        requiredDocuments=prefer(s.requiredDocuments(), requiredDocuments); officialCheckDocuments=prefer(s.officialCheckDocuments(), officialCheckDocuments); identityCheckDocuments=prefer(s.identityCheckDocuments(), identityCheckDocuments);
+        onlineApplicationUrl=prefer(s.onlineApplicationUrl(), onlineApplicationUrl); detailUrl=s.detailUrl(); agencyCode=s.agencyCode(); agencyName=s.agencyName();
         agencyType=s.agencyType(); departmentName=s.departmentName(); receptionAgency=s.receptionAgency(); contact=s.contact();
         serviceCategory=s.serviceCategory(); userCategory=s.userCategory(); viewCount=s.viewCount();
         registeredAtSource=s.registeredAtSource(); modifiedAtSource=s.modifiedAtSource(); childCandidate=s.childCandidate();
-        rawListJson=s.rawListJson(); rawDetailJson=s.rawDetailJson(); rawConditionJson=s.rawConditionJson();
         lastSyncedAt=now; updatedAt=now;
-        applyRegion();
     }
 
-    /** 소관기관 정보에서 제공 지역을 다시 판정해 정규화 컬럼에 반영한다. 반영 전과 달라지면 true. */
-    public boolean refreshRegion() {
-        WelfareRegionScope previousScope = regionScope;
-        String previousProvince = regionProvince;
-        String previousDistrict = regionDistrict;
-        applyRegion();
-        return previousScope != regionScope
-                || !java.util.Objects.equals(previousProvince, regionProvince)
-                || !java.util.Objects.equals(previousDistrict, regionDistrict);
-    }
-
-    private void applyRegion() {
-        WelfareRegion resolved = WelfareRegionResolver.forProgram(agencyType, agencyName,
-                String.join(" ", safe(name), safe(targetText), safe(selectionCriteriaText), safe(departmentName), safe(receptionAgency)));
-        regionScope = resolved.scope();
-        regionProvince = resolved.province();
-        regionDistrict = resolved.district();
-    }
-
-    /** 추천 규칙에서 사용하는 제공 지역. */
+    /** 새 지역 테이블에 저장할 제공 지역을 소관기관 원문에서 계산한다. */
     public WelfareRegion region() {
-        return new WelfareRegion(regionScope == null ? WelfareRegionScope.UNKNOWN : regionScope, regionProvince, regionDistrict);
+        return WelfareRegionResolver.forProgram(agencyType, agencyName,
+                String.join(" ", safe(name), safe(targetText), safe(selectionCriteriaText), safe(departmentName), safe(receptionAgency)));
     }
 
     private static String safe(String value) { return value == null ? "" : value; }
+    private static String prefer(String incoming, String existing) { return incoming == null ? existing : incoming; }
 }

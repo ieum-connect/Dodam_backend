@@ -5,6 +5,7 @@ import com.ieum.dodam.patient.domain.repository.PatientRepository;
 import com.ieum.dodam.welfare.domain.WelfareIncomeBand;
 import com.ieum.dodam.welfare.domain.WelfareRegion;
 import com.ieum.dodam.welfare.domain.WelfareRegionScope;
+import com.ieum.dodam.welfare.domain.WelfareRegionResolver;
 import com.ieum.dodam.welfare.domain.entity.ChildWelfareProfile;
 import com.ieum.dodam.welfare.domain.entity.WelfareProgram;
 import com.ieum.dodam.welfare.domain.repository.ChildWelfareProfileRepository;
@@ -50,7 +51,7 @@ public class WelfareRecommendationService {
     private final ChildWelfareProfileRepository profiles;
     private final WelfareProgramRepository programs;
     private final WelfareEligibilityEvaluator evaluator;
-    /** 병행 운용 중에는 없을 수 있다. 없으면 사업의 지역 컬럼으로 판정한다. */
+    /** 사업별 제공 지역 전용 저장소. */
     private final WelfareProgramRegionService programRegions;
     private final Clock clock;
 
@@ -100,9 +101,15 @@ public class WelfareRecommendationService {
         List<Candidate> candidates = new ArrayList<>();
         int excluded = 0;
         for (WelfareProgram program : active) {
-            // 지역 행이 아직 없는 사업은 병행 운용 중인 지역 컬럼으로 판정한다.
-            List<WelfareRegion> regions = providedRegions.getOrDefault(program.getId(), List.of(program.region()));
+            List<WelfareRegion> regions = programRegions == null
+                    ? List.of(program.region()) // 단위 테스트 전용 경로
+                    : providedRegions.getOrDefault(program.getId(), List.of(WelfareRegion.UNKNOWN));
             WelfareRegion region = WelfareRegion.bestFor(regions, userRegion);
+            if (region.scope() == WelfareRegionScope.UNKNOWN) {
+                WelfareRegion userMatched = WelfareRegionResolver.matchUnqualifiedDistrictToUser(
+                        program.getAgencyName(), userRegion);
+                if (userMatched.scope() != WelfareRegionScope.UNKNOWN) region = userMatched;
+            }
             WelfareEligibilityEvaluator.Evaluation evaluation = evaluator.evaluate(program, List.of(region), profile, months);
             if (!evaluation.recommendable() || evaluation.score() < MINIMUM_SCORE) {
                 excluded++;

@@ -11,6 +11,7 @@ public class Gov24WelfareProperties {
     private URI baseUrl = URI.create("https://api.odcloud.kr/api");
     private String serviceKey = "";
     private int pageSize = 100;
+    private int detailBatchSize = 50;
     private Duration connectTimeout = Duration.ofSeconds(2);
     private Duration readTimeout = Duration.ofSeconds(10);
     private boolean syncEnabled;
@@ -24,6 +25,13 @@ public class Gov24WelfareProperties {
         if (pageSize < 1 || pageSize > 1000) throw new IllegalArgumentException("pageSize는 1~1000이어야 합니다.");
         this.pageSize = pageSize;
     }
+    public int getDetailBatchSize() { return detailBatchSize; }
+    public void setDetailBatchSize(int detailBatchSize) {
+        if (detailBatchSize < 0 || detailBatchSize > 500) {
+            throw new IllegalArgumentException("detailBatchSize는 0~500이어야 합니다.");
+        }
+        this.detailBatchSize = detailBatchSize;
+    }
     public Duration getConnectTimeout() { return connectTimeout; }
     public void setConnectTimeout(Duration connectTimeout) { this.connectTimeout = connectTimeout; }
     public Duration getReadTimeout() { return readTimeout; }
@@ -34,6 +42,7 @@ public class Gov24WelfareProperties {
     @Override
     public String toString() {
         return "Gov24WelfareProperties[baseUrl=" + baseUrl + ", serviceKey=***, pageSize=" + pageSize
+                + ", detailBatchSize=" + detailBatchSize
                 + ", connectTimeout=" + connectTimeout + ", readTimeout=" + readTimeout
                 + ", syncEnabled=" + syncEnabled + "]";
     }

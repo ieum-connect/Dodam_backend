@@ -24,7 +24,7 @@ public class WelfareSyncApiController {
         if (!properties.isSyncEnabled() || properties.getServiceKey().isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "정부24 복지 API 동기화가 비활성화되어 있습니다.");
         }
-        return new SyncResponse(syncService.synchronizeAll(properties.getPageSize()));
+        return new SyncResponse(syncService.synchronizeAll(properties.getPageSize(), properties.getDetailBatchSize()));
     }
 
     public record SyncResponse(int saved) {}

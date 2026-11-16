@@ -80,7 +80,7 @@ public class WelfareEligibilityEvaluator {
      * 사업이 제공하는 지역 목록을 받아 판정한다.
      *
      * <p>여러 지역 가운데 하나라도 거주지를 포함하면 지역 조건을 충족한 것으로 본다. 목록이 비어 있으면
-     * 병행 운용 중인 {@code welfare_programs}의 지역 컬럼으로 넘어간다.
+     * 지역 목록을 직접 주지 않는 단위 테스트에서는 소관기관 원문으로 지역을 계산한다.
      */
     public Evaluation evaluate(WelfareProgram program, List<WelfareRegion> programRegions,
                                ChildWelfareProfile profile, int ageMonths) {

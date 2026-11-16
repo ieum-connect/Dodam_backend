@@ -23,7 +23,7 @@ import java.util.UUID;
 @Service
 public class WelfareCatalogService {
     private final WelfareProgramRepository programs;
-    /** 병행 운용 중에는 없을 수 있다. 없으면 원문은 기존 컬럼에만 남는다. */
+    /** 정부24 원문 전용 저장소. */
     private final WelfareProgramRawRepository rawPayloads;
     private final WelfareProgramRegionService regions;
     private final Clock clock;
@@ -34,7 +34,7 @@ public class WelfareCatalogService {
         this(programs, rawPayloads, regions, Clock.systemUTC());
     }
 
-    /** 원문·지역 테이블 없이 사업만 저장한다(단위 테스트용). */
+    /** 단위 테스트에서 정규화 본문만 검증할 때 쓰는 생성자. */
     WelfareCatalogService(WelfareProgramRepository programs, Clock clock) {
         this(programs, null, null, clock);
     }
@@ -60,6 +60,15 @@ public class WelfareCatalogService {
         storeRawPayload(saved.getId(), source, now);
         if (regions != null) regions.sync(saved);
         return saved;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean needsEnrichment(WelfareProgramSource listSource) {
+        if (rawPayloads == null) return true;
+        return programs.findByExternalServiceId(listSource.externalServiceId())
+                .flatMap(program -> rawPayloads.findById(program.getId()))
+                .map(raw -> raw.requiresEnrichment(listSource.rawListJson()))
+                .orElse(true);
     }
 
     @Transactional

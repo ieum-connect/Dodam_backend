@@ -1,6 +1,5 @@
 package com.ieum.dodam.welfare.domain.repository;
 
-import com.ieum.dodam.welfare.domain.WelfareRegionScope;
 import com.ieum.dodam.welfare.domain.entity.WelfareProgram;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -16,5 +15,4 @@ public interface WelfareProgramRepository extends JpaRepository<WelfareProgram, 
     List<WelfareProgram> findByActiveTrueOrderByModifiedAtSourceDescIdDesc();
     List<WelfareProgram> findByActiveTrueAndChildCandidateTrueOrderByModifiedAtSourceDescIdDesc();
     List<WelfareProgram> findByActiveTrueAndChildCandidateTrueOrderByModifiedAtSourceDescIdDesc(Pageable pageable);
-    List<WelfareProgram> findByRegionScope(WelfareRegionScope regionScope);
 }

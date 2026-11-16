@@ -1,6 +1,7 @@
 package com.ieum.dodam.welfare.domain.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -69,10 +70,16 @@ public class WelfareProgramRaw {
         return previous == null || !previous.equals(payloadHash);
     }
 
+    /** 목록이 바뀌었거나 상세/조건 원문이 아직 없으면 제한 배치 상세 수집 대상이다. */
+    public boolean requiresEnrichment(JsonNode incomingListJson) {
+        return !java.util.Objects.equals(listJson, normalize(incomingListJson))
+                || isEmpty(detailJson) || isEmpty(conditionJson);
+    }
+
     private void apply(JsonNode listJson, JsonNode detailJson, JsonNode conditionJson, Instant fetchedAt) {
-        this.listJson = listJson;
-        this.detailJson = detailJson;
-        this.conditionJson = conditionJson;
+        this.listJson = listJson == null ? normalize(this.listJson) : listJson;
+        this.detailJson = detailJson == null ? normalize(this.detailJson) : detailJson;
+        this.conditionJson = conditionJson == null ? normalize(this.conditionJson) : conditionJson;
         this.fetchedAt = fetchedAt;
         this.payloadHash = hash(listJson, detailJson, conditionJson);
     }
@@ -99,5 +106,13 @@ public class WelfareProgramRaw {
 
     private static String text(JsonNode node) {
         return node == null ? "{}" : node.toString();
+    }
+
+    private static JsonNode normalize(JsonNode node) {
+        return node == null ? JsonNodeFactory.instance.objectNode() : node;
+    }
+
+    private static boolean isEmpty(JsonNode node) {
+        return node == null || node.isNull() || node.isMissingNode() || (node.isObject() && node.isEmpty());
     }
 }

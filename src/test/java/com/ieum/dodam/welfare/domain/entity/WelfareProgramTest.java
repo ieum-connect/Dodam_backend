@@ -13,14 +13,13 @@ public class WelfareProgramTest {
     private static final Instant SECOND = Instant.parse("2026-11-05T00:00:00Z");
 
     @Test
-    void createsActiveProgramWithRawPayloads() {
+    void createsActiveProgram() {
         WelfareProgram program = WelfareProgram.create(source("처음", FIRST), FIRST);
 
         assertThat(program.getId()).isNotNull();
         assertThat(program.getExternalServiceId()).isEqualTo("SVC-1");
         assertThat(program.getName()).isEqualTo("처음");
         assertThat(program.isActive()).isTrue();
-        assertThat(program.getRawListJson().get("서비스ID").asText()).isEqualTo("SVC-1");
     }
 
     @Test

@@ -64,7 +64,7 @@ public class WelfareProgramRegion {
         return switch (region.scope()) {
             case NATIONAL -> WelfareRegion.NATIONWIDE;
             case UNKNOWN -> WelfareRegion.UNKNOWN;
-            case DISTRICT -> region.hasDistrict()
+            case DISTRICT -> region.hasProvince() && region.hasDistrict()
                     ? new WelfareRegion(WelfareRegionScope.DISTRICT, region.province(), region.district())
                     : normalize(new WelfareRegion(WelfareRegionScope.PROVINCE, region.province(), null));
             case PROVINCE -> region.hasProvince()
