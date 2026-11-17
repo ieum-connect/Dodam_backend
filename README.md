@@ -2,6 +2,8 @@
 
 <img src="./docs/assets/dodam_logo_effect.gif" width="100%" alt="도담 애니메이션 배너" />
 
+<img src="./docs/assets/dodam_service_overview.png" width="100%" alt="도담 서비스 소개" />
+
 # 도담 Backend
 
 ### 아이의 기록을 잇고, 가족의 돌봄을 이어가는 도담 💗
