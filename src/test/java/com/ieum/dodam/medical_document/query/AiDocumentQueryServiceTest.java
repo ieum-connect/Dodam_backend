@@ -216,7 +216,7 @@ class AiDocumentQueryServiceTest {
         AiDocumentExplanationStatusView status = queries.getExplanationStatus(caregiver, documentId);
         assertThat(status.jobStatus()).isEqualTo(AiJobStatus.SUCCEEDED);
         assertThat(status.resultStatus()).isEqualTo(ResultStatus.COMPLETE);
-        assertThat(status.detailUrl()).isEqualTo("/api/ai-documents/" + documentId);
+        assertThat(status.originalDocumentUrl()).isEqualTo("/api/documents/" + documentId);
     }
 
     /** 활성 돌봄 관계가 없는 보호자의 문서 조회를 차단하는지 검증한다. */

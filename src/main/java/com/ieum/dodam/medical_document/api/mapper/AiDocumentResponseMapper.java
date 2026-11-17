@@ -32,7 +32,6 @@ public class AiDocumentResponseMapper {
                 view.currentStep(),
                 view.progress(),
                 view.completedAt(),
-                view.detailUrl(),
                 view.failedStep(),
                 view.errorCode(),
                 view.retryable(),

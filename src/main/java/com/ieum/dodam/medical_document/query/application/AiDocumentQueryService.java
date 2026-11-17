@@ -76,10 +76,6 @@ public class AiDocumentQueryService {
                 AiDocumentErrorCode.INVALID_FILTER
         );
         ResultStatus resultStatus = nullableEnum(ResultStatus.class, row.getResultStatus());
-        String detailUrl = jobStatus == AiJobStatus.SUCCEEDED
-                ? "/api/ai-documents/" + documentId
-                : null;
-
         return new AiDocumentExplanationStatusView(
                 parseUuid(row.getDocumentId()),
                 jobStatus,
@@ -87,7 +83,6 @@ public class AiDocumentQueryService {
                 row.getCurrentStep(),
                 row.getProgress(),
                 parseDbInstant(row.getCompletedAt()),
-                detailUrl,
                 row.getFailedStep(),
                 row.getErrorCode(),
                 Boolean.TRUE.equals(row.getRetryable()),
