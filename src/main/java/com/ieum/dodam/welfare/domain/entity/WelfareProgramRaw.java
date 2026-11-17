@@ -81,7 +81,8 @@ public class WelfareProgramRaw {
         this.detailJson = detailJson == null ? normalize(this.detailJson) : detailJson;
         this.conditionJson = conditionJson == null ? normalize(this.conditionJson) : conditionJson;
         this.fetchedAt = fetchedAt;
-        this.payloadHash = hash(listJson, detailJson, conditionJson);
+        // null 인자로 보존된 기존 값까지 포함해 실제 저장 내용과 같은 해시를 만든다.
+        this.payloadHash = hash(this.listJson, this.detailJson, this.conditionJson);
     }
 
     /**
