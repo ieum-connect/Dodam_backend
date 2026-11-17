@@ -1,18 +1,13 @@
 package com.ieum.dodam.medical_document.api.controller;
 
 import com.ieum.dodam.global.exception.BusinessException;
-import com.ieum.dodam.medical_document.api.dto.request.AiDocumentListRequestDto;
-import com.ieum.dodam.medical_document.api.dto.response.AiDocumentDetailResponseDto;
 import com.ieum.dodam.medical_document.api.dto.response.AiDocumentExplanationStatusResponseDto;
-import com.ieum.dodam.medical_document.api.dto.response.AiDocumentListResponseDto;
 import com.ieum.dodam.medical_document.api.dto.response.AiDocumentSectionsResponseDto;
 import com.ieum.dodam.medical_document.api.mapper.AiDocumentResponseMapper;
 import com.ieum.dodam.medical_document.query.application.AiDocumentQueryService;
-import com.ieum.dodam.medical_document.query.model.AiDocumentListView;
 import com.ieum.dodam.user.domain.User;
 import com.ieum.dodam.user.error.UserErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,35 +23,6 @@ public class AiDocumentQueryController {
 
     private final AiDocumentQueryService queries;
     private final AiDocumentResponseMapper responseMapper;
-
-    /** AI 설명 조회 대상 문서 목록을 반환한다. */
-    @GetMapping("/api/ai-documents")
-    public AiDocumentListResponseDto list(
-            @AuthenticationPrincipal OAuth2User principal,
-            @RequestParam(required = false) String patientId,
-            @RequestParam(required = false) String visitId,
-            @RequestParam(required = false) String docType,
-            @RequestParam(required = false) String status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
-        User actor = queries.requireUser(userId(principal));
-        Page<AiDocumentListView> result = queries.listDocuments(
-                actor,
-                new AiDocumentListRequestDto(patientId, visitId, docType, status, page, size)
-        );
-        return responseMapper.toListResponse(result);
-    }
-
-    /** 특정 문서의 AI 설명 상세 정보를 반환한다. */
-    @GetMapping("/api/ai-documents/{documentId}")
-    public AiDocumentDetailResponseDto getDocument(
-            @AuthenticationPrincipal OAuth2User principal,
-            @PathVariable String documentId
-    ) {
-        User actor = queries.requireUser(userId(principal));
-        return responseMapper.toDetailResponse(queries.getDocument(actor, parseUuid(documentId)));
-    }
 
     /** 특정 문서의 AI 설명 섹션 목록을 반환한다. */
     @GetMapping("/api/ai-documents/{documentId}/sections")

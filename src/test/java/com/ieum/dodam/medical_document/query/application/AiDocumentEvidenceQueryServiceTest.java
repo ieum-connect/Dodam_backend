@@ -4,26 +4,21 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ieum.dodam.global.exception.BusinessException;
 import com.ieum.dodam.medical_document.api.dto.response.AiDocumentCitationsResponseDto;
 import com.ieum.dodam.medical_document.api.dto.response.AiDocumentFactsResponseDto;
-import com.ieum.dodam.medical_document.domain.DocumentStoragePort;
 import com.ieum.dodam.medical_document.domain.entity.MedicalDocument;
 import com.ieum.dodam.medical_document.domain.repository.AiDocumentEvidenceRepository;
 import com.ieum.dodam.medical_document.domain.repository.AiDocumentRepository;
 import com.ieum.dodam.medical_document.query.model.AiDocumentCitationRow;
 import com.ieum.dodam.medical_document.query.model.AiDocumentFactRow;
-import com.ieum.dodam.medical_document.query.model.AiDocumentPageRow;
 import com.ieum.dodam.user.domain.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -34,7 +29,6 @@ class AiDocumentEvidenceQueryServiceTest {
     private final AiDocumentRepository documents = mock(AiDocumentRepository.class);
     private final AiDocumentEvidenceRepository evidence = mock(AiDocumentEvidenceRepository.class);
     private final CareRelationPermissionService permissions = mock(CareRelationPermissionService.class);
-    private final DocumentStoragePort storage = mock(DocumentStoragePort.class);
 
     private final UUID documentId = UUID.randomUUID();
     private final UUID patientId = UUID.randomUUID();
@@ -49,7 +43,7 @@ class AiDocumentEvidenceQueryServiceTest {
         when(document.isDeleted()).thenReturn(false);
         when(documents.findById(documentId)).thenReturn(Optional.of(document));
         service = new AiDocumentEvidenceQueryService(
-                documents, evidence, permissions, storage, new ObjectMapper()
+                documents, evidence, permissions, new ObjectMapper()
         );
     }
 
@@ -106,43 +100,6 @@ class AiDocumentEvidenceQueryServiceTest {
                         AiDocumentCitationsResponseDto.SourceBox::height)
                 .containsExactly(10, 20, 30, 40);
         assertThat(result.citations().get(1).sourceBox()).isNull();
-    }
-
-    @Test
-    void pageIssuesShortLivedSignedUrlForExistingPage() {
-        AiDocumentPageRow page = mock(AiDocumentPageRow.class);
-        when(page.getStorageKey()).thenReturn("rendered/doc-1/page-2.png");
-        when(page.getRenderedPage()).thenReturn(true);
-        when(page.getSourceBox()).thenReturn("{\"x\":104,\"y\":196,\"width\":392,\"height\":124}");
-        when(page.getPageWidthPx()).thenReturn(600);
-        when(page.getPageHeightPx()).thenReturn(800);
-        when(evidence.findPage(documentId, 2)).thenReturn(Optional.of(page));
-        when(storage.createSignedUrl(eq("rendered/doc-1/page-2.png"), any(Duration.class)))
-                .thenReturn("https://storage.example/signed-page");
-
-        var result = service.page(actor, documentId, 2);
-
-        assertThat(result.documentId()).isEqualTo(documentId.toString());
-        assertThat(result.pageNo()).isEqualTo(2);
-        assertThat(result.pageUrl()).isEqualTo("https://storage.example/signed-page");
-        assertThat(result.renderedPage()).isTrue();
-        assertThat(result.sourceBox()).extracting(
-                AiDocumentCitationsResponseDto.SourceBox::x,
-                AiDocumentCitationsResponseDto.SourceBox::y,
-                AiDocumentCitationsResponseDto.SourceBox::width,
-                AiDocumentCitationsResponseDto.SourceBox::height
-        ).containsExactly(104, 196, 392, 124);
-        assertThat(result.pageWidthPx()).isEqualTo(600);
-        assertThat(result.pageHeightPx()).isEqualTo(800);
-        assertThat(result.expiresAt()).isAfter(java.time.Instant.now());
-        verify(storage).createSignedUrl("rendered/doc-1/page-2.png", Duration.ofMinutes(5));
-    }
-
-    @Test
-    void pageRejectsZeroOrNegativePageNumberBeforeStorageLookup() {
-        assertThatThrownBy(() -> service.page(actor, documentId, 0))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("페이지 요청");
     }
 
     @Test

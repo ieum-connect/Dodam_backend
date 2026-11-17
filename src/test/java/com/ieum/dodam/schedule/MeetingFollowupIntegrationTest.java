@@ -64,7 +64,7 @@ class MeetingFollowupIntegrationTest {
   String rid=json.readTree(mvc.perform(post("/api/health-records").header("Authorization","Bearer "+token).contentType("application/json").content(json.writeValueAsString(payload))).andExpect(status().isCreated()).andExpect(jsonPath("$.tagIds[0]").value(tid)).andReturn().getResponse().getContentAsString()).get("recordId").asText();
   mvc.perform(put("/api/memo-tags/"+tid).header("Authorization","Bearer "+token).contentType("application/json").content(json.writeValueAsString(Map.of("patientId",patient,"name","식사","version",0)))).andExpect(status().isOk()).andExpect(jsonPath("$.name").value("식사"));
   mvc.perform(delete("/api/memo-tags/"+tid).param("version","1").header("Authorization","Bearer "+token)).andExpect(status().isNoContent());em.flush();em.clear();
-  mvc.perform(get("/api/health-records/"+rid).header("Authorization","Bearer "+token)).andExpect(status().isOk()).andExpect(jsonPath("$.body").value("자유 메모")).andExpect(jsonPath("$.tagIds.length()").value(0));
+  mvc.perform(get("/api/health-records").header("Authorization","Bearer "+token)).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].recordId").value(rid)).andExpect(jsonPath("$.items[0].body").value("자유 메모")).andExpect(jsonPath("$.items[0].tagIds.length()").value(0));
  }
  @Test void duplicateTagAndForeignTagAttachmentRejected()throws Exception {
   String tid=tag("수면");

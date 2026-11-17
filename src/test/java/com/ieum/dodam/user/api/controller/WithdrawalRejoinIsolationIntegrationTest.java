@@ -60,7 +60,14 @@ class WithdrawalRejoinIsolationIntegrationTest {
         for(String path:new String[]{"health-records","visits","documents","growth-records","memo-tags","medication-series","action-items"}) {
             mvc.perform(get("/api/"+path).param("patientId",childId).header("Authorization",fresh)).andExpect(status().is4xxClientError());
         }
-        mvc.perform(get("/api/health-records/"+recordId).header("Authorization",fresh)).andExpect(status().is4xxClientError());
+        String recordPath = "/api/health-records/" + recordId;
+        mvc.perform(put(recordPath).header("Authorization", fresh).contentType("application/json")
+                .content(json.writeValueAsString(Map.of("patientId", childId, "body", "재가입 후 수정 시도"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("HEALTH_RECORD_002"));
+        mvc.perform(delete(recordPath).header("Authorization", fresh))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("HEALTH_RECORD_002"));
         mvc.perform(post("/api/children/join").header("Authorization",fresh).contentType("application/json")
             .content(json.writeValueAsString(Map.of("inviteCode",code)))).andExpect(status().is4xxClientError());
     }

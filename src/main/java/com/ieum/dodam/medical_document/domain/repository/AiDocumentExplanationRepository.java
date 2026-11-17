@@ -1,7 +1,6 @@
 package com.ieum.dodam.medical_document.domain.repository;
 
 import com.ieum.dodam.medical_document.domain.entity.AiExplanation;
-import com.ieum.dodam.medical_document.query.model.AiDocumentDetailRow;
 import com.ieum.dodam.medical_document.query.model.AiDocumentSectionRow;
 import com.ieum.dodam.medical_document.query.model.AiDocumentStatusRow;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,68 +15,6 @@ public interface AiDocumentExplanationRepository extends JpaRepository<AiExplana
 
     /** 문서의 최신 버전 AI 설명 엔티티를 조회한다. */
     Optional<AiExplanation> findTopByDocumentIdOrderByVersionDesc(UUID documentId);
-
-    /** 문서 상세 화면에 필요한 최신 분석 및 설명 정보를 조회한다. */
-    @Query(value = """
-            SELECT
-                CAST(d.id AS VARCHAR) AS "documentId",
-                d.file_name AS "documentName",
-                d.document_type AS "documentType",
-                CAST(d.visit_id AS VARCHAR) AS "visitId",
-                d.status AS "documentStatus",
-                latest_analysis.status AS "analysisStatus",
-                COALESCE(
-                    latest_run.status,
-                    CASE latest_analysis.status
-                        WHEN 'RUNNING' THEN 'RUNNING'
-                        WHEN 'FAILED' THEN 'FAILED'
-                        ELSE 'QUEUED'
-                    END
-                ) AS "jobStatus",
-                latest_explanation.result_status AS "resultStatus",
-                latest_explanation.title AS "title",
-                latest_explanation.content AS "content",
-                CAST(d.created_at AS VARCHAR) AS "createdAt",
-                COALESCE((
-                    SELECT COUNT(*)
-                    FROM explanation_sections es
-                    WHERE es.explanation_id = latest_explanation.id
-                ), 0) AS "sectionCount",
-                COALESCE((
-                    SELECT COUNT(*)
-                    FROM explanation_citations ec
-                    WHERE ec.explanation_id = latest_explanation.id
-                ), 0) AS "citationCount"
-            FROM documents d
-            LEFT JOIN document_analyses latest_analysis
-                ON latest_analysis.id = (
-                    SELECT da.id
-                    FROM document_analyses da
-                    WHERE da.document_id = d.id
-                    ORDER BY da.created_at DESC, da.id DESC
-                    LIMIT 1
-                )
-            LEFT JOIN ai_runs latest_run
-                ON latest_run.id = (
-                    SELECT ar.id
-                    FROM ai_runs ar
-                    WHERE ar.analysis_id = latest_analysis.id
-                      AND ar.run_type = 'EXPLANATION'
-                    ORDER BY ar.created_at DESC, ar.id DESC
-                    LIMIT 1
-                )
-            LEFT JOIN ai_explanations latest_explanation
-                ON latest_explanation.id = (
-                    SELECT ae.id
-                    FROM ai_explanations ae
-                    WHERE ae.document_id = d.id
-                    ORDER BY ae.version DESC, ae.created_at DESC, ae.id DESC
-                    LIMIT 1
-                )
-            WHERE d.id = :documentId
-              AND d.deleted_at IS NULL
-            """, nativeQuery = true)
-    Optional<AiDocumentDetailRow> findDetailByDocumentId(@Param("documentId") UUID documentId);
 
     /** 문서의 최신 AI 설명 작업 상태를 조회한다. */
     @Query(value = """

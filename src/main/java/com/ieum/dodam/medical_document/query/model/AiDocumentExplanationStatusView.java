@@ -13,7 +13,6 @@ public record AiDocumentExplanationStatusView(
         String currentStep,
         Integer progress,
         Instant completedAt,
-        String detailUrl,
         String failedStep,
         String errorCode,
         boolean retryable,

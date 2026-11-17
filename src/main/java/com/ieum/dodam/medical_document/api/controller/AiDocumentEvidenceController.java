@@ -3,7 +3,6 @@ package com.ieum.dodam.medical_document.api.controller;
 import com.ieum.dodam.global.exception.BusinessException;
 import com.ieum.dodam.medical_document.api.dto.response.AiDocumentCitationsResponseDto;
 import com.ieum.dodam.medical_document.api.dto.response.AiDocumentFactsResponseDto;
-import com.ieum.dodam.medical_document.api.dto.response.AiDocumentPageResponseDto;
 import com.ieum.dodam.medical_document.error.AiDocumentErrorCode;
 import com.ieum.dodam.medical_document.query.application.AiDocumentEvidenceQueryService;
 import com.ieum.dodam.medical_document.query.application.AiDocumentQueryService;
@@ -46,18 +45,6 @@ public class AiDocumentEvidenceController {
     ) {
         User actor = queries.requireUser(userId(principal));
         return evidence.citations(actor, uuid(documentId), optionalUuid(sectionId));
-    }
-
-    /** 페이지 렌더링 이미지가 있으면 이를, 없으면 원본 문서 URL을 반환합니다. */
-    @GetMapping("/api/ai-documents/{documentId}/pages/{pageNo}")
-    public AiDocumentPageResponseDto page(
-            @AuthenticationPrincipal OAuth2User principal,
-            @PathVariable String documentId,
-            @PathVariable int pageNo,
-            @RequestParam(required = false) String anchorId
-    ) {
-        User actor = queries.requireUser(userId(principal));
-        return evidence.page(actor, uuid(documentId), pageNo, anchorId);
     }
 
     /** 경로 식별자의 UUID 형식을 검증합니다. */

@@ -59,13 +59,6 @@ public class VisitApiController {
                 queries.list(actor(principal), patientId, cursor, size, includeCanceled));
     }
 
-    /** 취소 여부와 관계없이 당사자의 방문 상세를 조회한다. */
-    @GetMapping("/{visitId}")
-    public VisitResponseDto detail(
-            @AuthenticationPrincipal OAuth2User principal, @PathVariable UUID visitId) {
-        return mapper.toResponse(queries.detail(actor(principal), visitId));
-    }
-
     /** 대상 개인에 방문을 등록한다. */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)

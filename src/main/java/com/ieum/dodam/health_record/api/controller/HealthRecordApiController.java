@@ -57,13 +57,6 @@ public class HealthRecordApiController {
         return mapper.toResponse(queries.list(actor(principal), patientId, cursor, size));
     }
 
-    /** 건강기록 상세를 조회한다. */
-    @GetMapping("/{recordId}")
-    public HealthRecordResponseDto detail(
-            @AuthenticationPrincipal OAuth2User principal, @PathVariable UUID recordId) {
-        return mapper.toResponse(queries.detail(actor(principal), recordId));
-    }
-
     /** 본인 또는 연결된 개인의 건강기록을 작성한다. */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)

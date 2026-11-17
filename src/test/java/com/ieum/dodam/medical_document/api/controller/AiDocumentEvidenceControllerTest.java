@@ -3,7 +3,6 @@ package com.ieum.dodam.medical_document.api.controller;
 import com.ieum.dodam.global.exception.BusinessException;
 import com.ieum.dodam.medical_document.api.dto.response.AiDocumentCitationsResponseDto;
 import com.ieum.dodam.medical_document.api.dto.response.AiDocumentFactsResponseDto;
-import com.ieum.dodam.medical_document.api.dto.response.AiDocumentPageResponseDto;
 import com.ieum.dodam.medical_document.query.application.AiDocumentEvidenceQueryService;
 import com.ieum.dodam.medical_document.query.application.AiDocumentQueryService;
 import com.ieum.dodam.user.domain.User;
@@ -11,15 +10,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,17 +52,11 @@ class AiDocumentEvidenceControllerTest {
     }
 
     @Test
-    void citationsAndPageDelegateToEvidenceService() {
+    void citationsDelegateToEvidenceService() {
         AiDocumentCitationsResponseDto citations = new AiDocumentCitationsResponseDto(documentId.toString(), List.of());
-        AiDocumentPageResponseDto page = new AiDocumentPageResponseDto(
-                documentId.toString(), 2, "https://storage.example/page", Instant.parse("2026-10-06T00:05:00Z"),
-                true, "anchor-1", null, 1200, 1800
-        );
         when(evidence.citations(actor, documentId, null)).thenReturn(citations);
-        when(evidence.page(actor, documentId, 2, "anchor-1")).thenReturn(page);
 
         assertThat(controller.citations(principal, documentId.toString(), null)).isSameAs(citations);
-        assertThat(controller.page(principal, documentId.toString(), 2, "anchor-1")).isSameAs(page);
     }
 
     @Test
