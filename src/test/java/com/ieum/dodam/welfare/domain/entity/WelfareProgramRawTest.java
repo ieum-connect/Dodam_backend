@@ -34,6 +34,23 @@ class WelfareProgramRawTest {
         assertThat(raw.getListJson()).isEqualTo(newList);
         assertThat(raw.getDetailJson()).isEqualTo(detail);
         assertThat(raw.getConditionJson()).isEqualTo(conditions);
+        assertThat(raw.isEnrichmentPending()).isTrue();
+        assertThat(raw.requiresEnrichment(newList)).isTrue();
+    }
+
+    @Test
+    void successfulEnrichmentClearsPendingListChange() {
+        var oldList = JsonNodeFactory.instance.objectNode().put("version", 1);
+        var newList = JsonNodeFactory.instance.objectNode().put("version", 2);
+        var detail = JsonNodeFactory.instance.objectNode().put("purpose", "child care");
+        var conditions = JsonNodeFactory.instance.arrayNode().addObject().put("JA", "value");
+        WelfareProgramRaw raw = WelfareProgramRaw.of(UUID.randomUUID(), oldList, detail, conditions, NOW);
+
+        raw.update(newList, null, null, NOW.plusSeconds(60));
+        raw.update(newList, detail, conditions, NOW.plusSeconds(120));
+
+        assertThat(raw.isEnrichmentPending()).isFalse();
+        assertThat(raw.requiresEnrichment(newList)).isFalse();
     }
 
     @Test

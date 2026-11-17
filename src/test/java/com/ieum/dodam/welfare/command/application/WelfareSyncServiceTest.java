@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ieum.dodam.welfare.domain.WelfareProgramSource;
 import com.ieum.dodam.welfare.domain.repository.WelfareSyncLogRepository;
 import com.ieum.dodam.welfare.infrastructure.gov24.Gov24WelfareClient;
+import com.ieum.dodam.welfare.infrastructure.gov24.Gov24WelfareClientException;
 import com.ieum.dodam.welfare.infrastructure.gov24.dto.Gov24PageResponse;
 import com.ieum.dodam.welfare.infrastructure.gov24.dto.Gov24ServiceDetailItem;
 import com.ieum.dodam.welfare.infrastructure.gov24.dto.Gov24ServiceListItem;
@@ -56,6 +57,21 @@ class WelfareSyncServiceTest {
         assertThat(source.getValue().rawDetailJson().get("서비스ID").asText()).isEqualTo("SVC-1");
         assertThat(source.getValue().rawConditionJson().isArray()).isTrue();
         assertThat(source.getValue().rawConditionJson().size()).isEqualTo(2);
+    }
+
+    @Test
+    void failedEnrichmentConsumesBatchAttemptLimit() {
+        Gov24ServiceListItem item = item("아이돌봄 지원", "아동 양육 가정", "보육");
+        when(client.serviceList(1, 100, null)).thenReturn(new Gov24PageResponse<>(
+                1, 100, 2, 2, 2, List.of(item, item)));
+        when(catalog.needsEnrichment(any())).thenReturn(true);
+        when(client.serviceDetail("SVC-1")).thenThrow(new Gov24WelfareClientException(
+                Gov24WelfareClientException.Reason.RATE_LIMITED, 429, "rate limited", null));
+
+        assertThat(service.synchronizeAll(100, 1)).isEqualTo(2);
+
+        verify(client, times(1)).serviceDetail("SVC-1");
+        verify(catalog, times(2)).upsert(any());
     }
 
     private Gov24PageResponse<Gov24ServiceListItem> page(Gov24ServiceListItem item) {

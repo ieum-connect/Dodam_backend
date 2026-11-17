@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -52,6 +53,9 @@ public class WelfareProgramRaw {
     @Column(name = "fetched_at", nullable = false)
     private Instant fetchedAt;
 
+    @Column(name = "enrichment_pending", nullable = false)
+    private boolean enrichmentPending;
+
     public static WelfareProgramRaw of(UUID programId, JsonNode listJson, JsonNode detailJson,
                                        JsonNode conditionJson, Instant fetchedAt) {
         WelfareProgramRaw raw = new WelfareProgramRaw();
@@ -72,14 +76,22 @@ public class WelfareProgramRaw {
 
     /** 목록이 바뀌었거나 상세/조건 원문이 아직 없으면 제한 배치 상세 수집 대상이다. */
     public boolean requiresEnrichment(JsonNode incomingListJson) {
-        return !java.util.Objects.equals(listJson, normalize(incomingListJson))
+        return enrichmentPending
+                || !Objects.equals(listJson, normalize(incomingListJson))
                 || isEmpty(detailJson) || isEmpty(conditionJson);
     }
 
     private void apply(JsonNode listJson, JsonNode detailJson, JsonNode conditionJson, Instant fetchedAt) {
+        boolean listChanged = listJson != null && !Objects.equals(this.listJson, normalize(listJson));
+        boolean enrichmentCompleted = detailJson != null && conditionJson != null;
         this.listJson = listJson == null ? normalize(this.listJson) : listJson;
         this.detailJson = detailJson == null ? normalize(this.detailJson) : detailJson;
         this.conditionJson = conditionJson == null ? normalize(this.conditionJson) : conditionJson;
+        if (enrichmentCompleted) {
+            this.enrichmentPending = false;
+        } else if (listChanged || isEmpty(this.detailJson) || isEmpty(this.conditionJson)) {
+            this.enrichmentPending = true;
+        }
         this.fetchedAt = fetchedAt;
         // null 인자로 보존된 기존 값까지 포함해 실제 저장 내용과 같은 해시를 만든다.
         this.payloadHash = hash(this.listJson, this.detailJson, this.conditionJson);

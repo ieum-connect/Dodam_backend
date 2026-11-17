@@ -70,8 +70,8 @@ public class WelfareSyncService {
                 WelfareProgramSource source = toSource(item);
                 try {
                     if (remainingDetails > 0 && catalog.needsEnrichment(source)) {
-                        source = enrich(item);
                         remainingDetails--;
+                        source = enrich(item);
                     }
                 } catch (Gov24WelfareClientException exception) {
                     logs.save(WelfareSyncLog.failed(WelfareSyncLog.Endpoint.SERVICE_DETAIL,
