@@ -170,6 +170,11 @@ public class CalendarService {
     }
 
     public Schedule decide(User actor, UUID id, boolean approve, Instant startsAt) {
+        return decide(actor, id, approve, startsAt, null, null, null);
+    }
+
+    public Schedule decide(User actor, UUID id, boolean approve, Instant startsAt,
+            Integer weekdayMask, java.time.LocalDate endDate, String timeZone) {
         var item = actions.lockById(id).orElseThrow(CalendarService::invalid);
         var visit = visits.findById(item.getVisitId()).orElseThrow(CalendarService::invalid);
         access.requirePatient(actor, visit.getPatientId());
@@ -196,6 +201,18 @@ public class CalendarService {
                     case TEST -> ScheduleType.TEST;
                     case CAUTION, OTHER -> ScheduleType.OTHER;
                 };
+        if (weekdayMask != null) {
+            if (type != ScheduleType.MEDICATION) throw invalid();
+            var rule = recurring.create(actor, visit.getPatientId(), id, item.getTitle(),
+                    item.getDescription(), date, timeZone, endDate, weekdayMask);
+            // The first occurrence carries the unique source link. Repeated approvals
+            // return it instead of creating another rule or a duplicate one-off dose.
+            var first = schedules.findFirstBySeriesIdOrderByStartsAtAsc(rule.getId())
+                    .orElseThrow(CalendarService::invalid);
+            first.linkActionItem(id);
+            item.approve(actor.getId(), Instant.now());
+            return schedules.saveAndFlush(first);
+        }
         item.approve(actor.getId(), Instant.now());
         return schedules.save(
                 Schedule.create(visit.getPatientId(), id, type, item.getTitle(), date));

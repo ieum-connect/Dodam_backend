@@ -36,7 +36,8 @@ public class CalendarApiController {
             @NotNull ScheduleType scheduleType,
             @NotNull Instant startsAt) {}
 
-    public record Decision(Instant startsAt) {}
+    public record Decision(Instant startsAt, @Min(1) @Max(127) Integer weekdayMask,
+            java.time.LocalDate endDate, String timeZone) {}
 
     public record BatchWrite(
             @NotNull UUID patientId,
@@ -127,8 +128,10 @@ public class CalendarApiController {
     public Schedule approve(
             @AuthenticationPrincipal OAuth2User principal,
             @PathVariable UUID id,
-            @RequestBody(required = false) Decision body) {
-        return calendar.decide(actor(principal), id, true, body == null ? null : body.startsAt());
+            @Valid @RequestBody(required = false) Decision body) {
+        return calendar.decide(actor(principal), id, true, body == null ? null : body.startsAt(),
+                body == null ? null : body.weekdayMask(), body == null ? null : body.endDate(),
+                body == null ? null : body.timeZone());
     }
 
     @PostMapping("/action-items/{id}/reject")
