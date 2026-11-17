@@ -436,19 +436,19 @@ src/main/resources
 
 ---
 
-## 7. 📚 프로젝트 산출물
+## 8. 📚 프로젝트 산출물
 
 | 산출물 | 설명 | 링크 |
 |---|---|---|
 | 📋 요구사항 명세서 | 기능 요구사항, 범위와 검증 기준 | [요구사항 명세서 열기](https://docs.google.com/spreadsheets/d/1Pi5tciZ795vPqvacpGjOlpbyNY47Vwr6-8HxIm9lkYI/edit?gid=305644033#gid=305644033) |
-| 📝 기획서 | 배경, 사용자 문제, 기능과 서비스 흐름 | [기획서 열기](https://docs.google.com/document/d/1-YzN9Gbwpwyt9RQgWLjE3HoCDPSbW14VlSZtkL0kwyA/edit?tab=t.0) |
-| 🖼️ 화면 설계서 | 화면과 사용자 상호작용 정의 | 🔗 추후 링크 추가 |
+| 📝 기획서 | 배경, 사용자 문제, 기능과 서비스 흐름 | [기획서 열기](https://drive.google.com/file/d/1rl487qoTOaNZGNvTx60XRO-9JFMlxcUd/view?usp=sharing) |
+| 🖼️ 화면 설계서 | 화면과 사용자 상호작용 정의 | [화면 설계서 열기](https://claude.ai/artifact/HbHHm56cdtbRuStCtJJt2T#page-dcb81aee8d83) |
 | 🗃️ ERD | 핵심 Entity와 관계 | [ERD 열기](https://claude.ai/artifact/8c1WMx1Eji4CSEDgtes71e) |
 | 📡 API 명세서 | Frontend·Spring·AI Backend의 요청·응답 계약 | 🔗 추후 링크 추가 |
 
 ---
 
-## 8. 🚀 Local 실행
+## 9. 🚀 Local 실행
 
 <details open>
 <summary><b>▶️ Database와 Backend 실행</b></summary>
@@ -482,7 +482,7 @@ docker compose up -d
 
 ---
 
-## 9. 🔐 환경 변수와 보안
+## 10. 🔐 환경 변수와 보안
 
 <details open>
 <summary><b>⚙️ 핵심 환경 변수</b></summary>
@@ -522,7 +522,7 @@ DODAM_STORAGE_S3_REGION=
 
 ---
 
-## 10. ✅ Test와 검증
+## 11. ✅ Test와 검증
 
 <details open>
 <summary><b>🧪 실행 명령어</b></summary>
@@ -553,7 +553,7 @@ DODAM_STORAGE_S3_REGION=
 
 ---
 
-## 11. 🤝 개발 컨벤션
+## 6.5 🤝 개발 컨벤션
 
 <details open>
 <summary><b>🌿 Branch Convention과 구조</b></summary>
@@ -645,7 +645,7 @@ Issue 생성 → 최신 develop → 작업 Branch → Test
 
 ---
 
-## 12. 🔗 도담 저장소 바로가기
+## 13. 🔗 도담 저장소 바로가기
 
 | 저장소 | 담당 영역 | 바로가기 |
 |---|---|---|
