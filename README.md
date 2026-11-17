@@ -533,7 +533,81 @@ PR 제목: <type>(<scope>): <한국어 변경 내용>
 </details>
 
 <details>
-<summary><b>☕ 4. Backend Code Style</b></summary>
+<summary><b>🧩 4. Issue · Pull Request Templates</b></summary>
+
+| Template | 사용 시점 | 바로가기 |
+|---|---|---|
+| 기능 Issue | 신규 Domain·API·고도화 작업 | [기능 이슈 템플릿](./.github/ISSUE_TEMPLATE/기능-이슈-템플릿.md) |
+| Bug Issue | 오류·회귀·운영 문제 보고 | [버그 이슈 템플릿](./.github/ISSUE_TEMPLATE/버그-이슈-템플릿.md) |
+| Pull Request | 구현 완료 후 Review 요청 | [Backend PR 템플릿](./.github/PULL_REQUEST_TEMPLATE.md) |
+
+<details>
+<summary><b>📌 기능 Issue 작성 골격</b></summary>
+
+```markdown
+## 🏷️ 기능 분류
+- 대분류 / 중분류 / 소분류 / 관련 기능 코드
+
+## 🎯 개발 목적 (Why)
+## 📌 구현 기능 요약 (What)
+## 📋 상세 요구사항 (Requirements)
+## 📂 작업 대상 Package · Class와 역할
+## 🔌 API 규격 (Method · Endpoint · Request · Response)
+## 🛠️ 세부 구현 체크리스트
+## 🏁 완료 조건 (Definition of Done)
+## 🧪 Unit · Integration · API 테스트
+## 📎 관련 명세·화면 설계·기술 자료
+```
+
+</details>
+
+<details>
+<summary><b>🐛 Bug Issue 작성 골격</b></summary>
+
+```markdown
+## 🏷️ 관련 기능 코드 · 실행 환경 · 우선순위
+## 🚨 발생 상황
+## 🔁 재현 방법 (Steps to Reproduce)
+## 📈 기대 동작 / 📉 실제 동작
+## 🛠️ 수정 범위 및 원인 추정
+## 🏁 완료 조건 (Definition of Done)
+## 📎 Stack Trace · Request · Database 상태
+```
+
+</details>
+
+<details>
+<summary><b>🔀 Pull Request 작성 골격</b></summary>
+
+```markdown
+## 무엇을 구현했나요?
+- 사용자 또는 시스템 관점의 변경 사항
+
+## 참고할 사항
+- API·DB·Migration·환경 변수·연동 저장소 영향
+
+## 테스트
+- 실행한 명령어
+- 자동·수동 검증 결과
+- 확인하지 못한 항목과 사유
+
+## 연결된 이슈
+- Closes #이슈번호
+
+## Definition of Done
+- [ ] 요구사항과 Issue 완료 조건을 충족했다
+- [ ] 관련 Test와 Build가 통과했다
+- [ ] 인증·권한·민감정보 노출을 확인했다
+- [ ] API·DB 호환성과 Migration 영향을 확인했다
+- [ ] 최소 1명의 Review 승인을 받았다
+```
+
+</details>
+
+</details>
+
+<details>
+<summary><b>☕ 5. Backend Code Style</b></summary>
 
 | 영역 | 규칙 |
 |---|---|
@@ -553,7 +627,7 @@ PR 제목: <type>(<scope>): <한국어 변경 내용>
 </details>
 
 <details>
-<summary><b>✅ 5. 리뷰 전 체크리스트</b></summary>
+<summary><b>✅ 6. 리뷰 전 체크리스트</b></summary>
 
 - [ ] 최신 `develop`을 반영했고 불필요한 변경 파일이 없습니다.
 - [ ] Windows `./mvnw.cmd verify` 또는 macOS·Linux `./mvnw verify`가 통과합니다.
