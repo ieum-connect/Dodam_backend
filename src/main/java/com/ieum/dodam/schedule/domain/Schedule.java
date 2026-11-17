@@ -58,6 +58,8 @@ public class Schedule {
     @Column(name = "batch_id")
     private UUID batchId;
 
+    public void linkActionItem(UUID id) { this.actionItemId = id; }
+
     public void assignBatch(UUID batchId) {
         this.batchId = batchId;
     }

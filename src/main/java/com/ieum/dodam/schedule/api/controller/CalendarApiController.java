@@ -36,7 +36,25 @@ public class CalendarApiController {
             @NotNull ScheduleType scheduleType,
             @NotNull Instant startsAt) {}
 
-    public record Decision(Instant startsAt) {}
+    public record Decision(Instant startsAt, @Min(1) @Max(127) Integer weekdayMask,
+            java.time.LocalDate endDate, String timeZone) {
+        @jakarta.validation.constraints.AssertTrue(message = "반복 복약의 유효한 시간대가 필요합니다.")
+        public boolean isValidRepeatTimeZone() {
+            if (weekdayMask == null) return true;
+            if (timeZone == null || timeZone.isBlank()) return false;
+            try {
+                java.time.ZoneId.of(timeZone);
+                return true;
+            } catch (java.time.DateTimeException error) {
+                return false;
+            }
+        }
+
+        @jakarta.validation.constraints.AssertTrue(message = "처방 반복 복약의 종료일이 필요합니다.")
+        public boolean isRepeatEndDatePresent() {
+            return weekdayMask == null || endDate != null;
+        }
+    }
 
     public record BatchWrite(
             @NotNull UUID patientId,
@@ -127,8 +145,10 @@ public class CalendarApiController {
     public Schedule approve(
             @AuthenticationPrincipal OAuth2User principal,
             @PathVariable UUID id,
-            @RequestBody(required = false) Decision body) {
-        return calendar.decide(actor(principal), id, true, body == null ? null : body.startsAt());
+            @Valid @RequestBody(required = false) Decision body) {
+        return calendar.decide(actor(principal), id, true, body == null ? null : body.startsAt(),
+                body == null ? null : body.weekdayMask(), body == null ? null : body.endDate(),
+                body == null ? null : body.timeZone());
     }
 
     @PostMapping("/action-items/{id}/reject")

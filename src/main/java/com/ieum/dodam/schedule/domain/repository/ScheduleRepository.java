@@ -39,5 +39,7 @@ public interface ScheduleRepository extends JpaRepository<Schedule, UUID> {
     List<Schedule> findByPatientIdAndStartsAtGreaterThanEqualAndStartsAtLessThanOrderByStartsAtAsc(
             UUID patientId, Instant from, Instant to);
 
+    Optional<Schedule> findFirstBySeriesIdOrderByStartsAtAsc(UUID seriesId);
+
     Optional<Schedule> findByActionItemId(UUID actionItemId);
 }

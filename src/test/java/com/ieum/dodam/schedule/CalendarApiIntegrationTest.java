@@ -103,6 +103,86 @@ class CalendarApiIntegrationTest {
     }
 
     @Test
+    void prescriptionRepeatRejectsInvalidTimeZoneAndMissingEndDateWithoutWrites() throws Exception {
+        ReflectionTestUtils.setField(candidate, "type", ActionItemType.MEDICATION);
+        actions.saveAndFlush(candidate);
+        var day = LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(1);
+        var start = day.atTime(9, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant();
+        for (String zone : new String[]{"Invalid/Zone", "", " ", null}) {
+            var payload = new java.util.HashMap<String,Object>();
+            payload.put("startsAt", start.toString());
+            payload.put("weekdayMask", 127);
+            payload.put("endDate", day.plusDays(2).toString());
+            payload.put("timeZone", zone);
+            mvc.perform(post("/api/action-items/{id}/approve", candidate.getId())
+                    .header("Authorization", "Bearer " + token).contentType("application/json")
+                    .content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(payload)))
+                    .andExpect(status().isBadRequest());
+        }
+        for (String end : new String[]{"", ",\"endDate\":null"}) {
+            String body = "{\"startsAt\":\"" + start + "\",\"weekdayMask\":127,\"timeZone\":\"Asia/Seoul\"" + end + "}";
+            mvc.perform(post("/api/action-items/{id}/approve", candidate.getId())
+                    .header("Authorization", "Bearer " + token).contentType("application/json").content(body))
+                    .andExpect(status().isBadRequest());
+        }
+        assertThat(series.findById(candidate.getId())).isEmpty();
+        assertThat(schedules.findByActionItemId(candidate.getId())).isEmpty();
+        assertThat(actions.findById(candidate.getId()).orElseThrow().getApprovalStatus())
+                .isEqualTo(ActionItemApprovalStatus.PENDING);
+    }
+
+    @Test
+    void prescriptionApprovalCreatesDailySeriesOnceAndKeepsSource() throws Exception {
+        ReflectionTestUtils.setField(candidate, "type", ActionItemType.MEDICATION);
+        actions.saveAndFlush(candidate);
+        var day = LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(1);
+        var start = day.atTime(9, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant();
+        var body = """
+                {"startsAt":"%s","weekdayMask":127,"endDate":"%s","timeZone":"Asia/Seoul"}
+                """.formatted(start, day.plusDays(2));
+        for (int retry = 0; retry < 2; retry++) {
+            mvc.perform(post("/api/action-items/{id}/approve", candidate.getId())
+                    .header("Authorization", "Bearer " + token).contentType("application/json").content(body))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.actionItemId").value(candidate.getId().toString()))
+                    .andExpect(jsonPath("$.seriesId").value(candidate.getId().toString()));
+        }
+        assertThat(series.findById(candidate.getId())).isPresent();
+        assertThat(schedules.findAll().stream().filter(row -> candidate.getId().equals(row.getSeriesId())))
+                .hasSize(3);
+        assertThat(actions.findById(candidate.getId()).orElseThrow().getApprovalStatus())
+                .isEqualTo(ActionItemApprovalStatus.APPROVED);
+    }
+
+    @Test
+    void prescriptionWeeklyApprovalStartsOnTheSelectedWeekday() throws Exception {
+        ReflectionTestUtils.setField(candidate, "type", ActionItemType.MEDICATION);
+        actions.saveAndFlush(candidate);
+        var day = LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(1);
+        int mask = 1 << (day.plusDays(1).getDayOfWeek().getValue() - 1);
+        var body = """
+                {"startsAt":"%s","weekdayMask":%d,"endDate":"%s","timeZone":"Asia/Seoul"}
+                """.formatted(day.atTime(9, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant(), mask, day.plusDays(8));
+        mvc.perform(post("/api/action-items/{id}/approve", candidate.getId())
+                .header("Authorization", "Bearer " + token).contentType("application/json").content(body))
+                .andExpect(status().isOk());
+        assertThat(schedules.findAll().stream().filter(row -> candidate.getId().equals(row.getSeriesId()))
+                .map(row -> row.getOccurrenceDate())).containsExactlyInAnyOrder(day.plusDays(1), day.plusDays(8));
+    }
+
+    @Test
+    void nonMedicationCandidateCannotBecomeARecurringPrescription() throws Exception {
+        mvc.perform(post("/api/action-items/{id}/approve", candidate.getId())
+                .header("Authorization", "Bearer " + token).contentType("application/json")
+                .content("""
+                    {"startsAt":"%s","weekdayMask":127,"endDate":"%s","timeZone":"Asia/Seoul"}
+                    """.formatted(Instant.now().plusSeconds(86400), LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(3))))
+                .andExpect(status().isBadRequest());
+        assertThat(series.findById(candidate.getId())).isEmpty();
+        assertThat(schedules.findByActionItemId(candidate.getId())).isEmpty();
+    }
+
+    @Test
     void recurringQueryMaterializesMonthAndRejectsOversizedRange() throws Exception {
         var start = LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(1)
                 .atTime(9, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant();
