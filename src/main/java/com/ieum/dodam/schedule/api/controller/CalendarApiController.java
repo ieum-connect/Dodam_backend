@@ -37,7 +37,24 @@ public class CalendarApiController {
             @NotNull Instant startsAt) {}
 
     public record Decision(Instant startsAt, @Min(1) @Max(127) Integer weekdayMask,
-            java.time.LocalDate endDate, String timeZone) {}
+            java.time.LocalDate endDate, String timeZone) {
+        @jakarta.validation.constraints.AssertTrue(message = "반복 복약의 유효한 시간대가 필요합니다.")
+        public boolean isValidRepeatTimeZone() {
+            if (weekdayMask == null) return true;
+            if (timeZone == null || timeZone.isBlank()) return false;
+            try {
+                java.time.ZoneId.of(timeZone);
+                return true;
+            } catch (java.time.DateTimeException error) {
+                return false;
+            }
+        }
+
+        @jakarta.validation.constraints.AssertTrue(message = "처방 반복 복약의 종료일이 필요합니다.")
+        public boolean isRepeatEndDatePresent() {
+            return weekdayMask == null || endDate != null;
+        }
+    }
 
     public record BatchWrite(
             @NotNull UUID patientId,

@@ -202,7 +202,7 @@ public class CalendarService {
                     case CAUTION, OTHER -> ScheduleType.OTHER;
                 };
         if (weekdayMask != null) {
-            if (type != ScheduleType.MEDICATION) throw invalid();
+            if (type != ScheduleType.MEDICATION || endDate == null) throw invalid();
             var rule = recurring.create(actor, visit.getPatientId(), id, item.getTitle(),
                     item.getDescription(), date, timeZone, endDate, weekdayMask);
             // The first occurrence carries the unique source link. Repeated approvals
