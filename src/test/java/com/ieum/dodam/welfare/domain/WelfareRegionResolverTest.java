@@ -12,9 +12,9 @@ class WelfareRegionResolverTest {
     @ParameterizedTest(name = "소관기관 \"{0}\" -> {1}/{2}/{3}")
     @CsvSource(nullValues = "null", value = {
             "'전라남도 영광군', DISTRICT, 전라남도, 영광군",
-            "'영광군',         DISTRICT, null,   영광군",
+            "'영광군',         UNKNOWN, null,   null",
             "'서울특별시 강동구', DISTRICT, 서울특별시, 강동구",
-            "'강동구청',       DISTRICT, null,   강동구",
+            "'강동구청',       UNKNOWN, null,   null",
             "'경기도 수원시 장안구', DISTRICT, 경기도, '수원시 장안구'",
             "'경기도 광주시',  DISTRICT, 경기도, 광주시",
             "'대구광역시',     PROVINCE, 대구광역시, null",
@@ -62,7 +62,7 @@ class WelfareRegionResolverTest {
         assertThat(WelfareRegion.NATIONWIDE.covers(user)).isEqualTo(WelfareRegion.Coverage.COVERED);
         assertThat(program("서울특별시").covers(user)).isEqualTo(WelfareRegion.Coverage.COVERED);
         assertThat(program("서울특별시 강동구").covers(user)).isEqualTo(WelfareRegion.Coverage.COVERED);
-        assertThat(program("강동구청").covers(user)).isEqualTo(WelfareRegion.Coverage.COVERED);
+        assertThat(program("강동구청").covers(user)).isEqualTo(WelfareRegion.Coverage.UNDETERMINED);
     }
 
     @Test
@@ -73,7 +73,7 @@ class WelfareRegionResolverTest {
         assertThat(program("서울특별시 송파구").covers(user)).isEqualTo(WelfareRegion.Coverage.OUTSIDE);
         assertThat(program("전라남도").covers(user)).isEqualTo(WelfareRegion.Coverage.OUTSIDE);
         assertThat(program("전라남도 영광군").covers(user)).isEqualTo(WelfareRegion.Coverage.OUTSIDE);
-        assertThat(program("영광군").covers(user)).isEqualTo(WelfareRegion.Coverage.OUTSIDE);
+        assertThat(program("영광군").covers(user)).isEqualTo(WelfareRegion.Coverage.UNDETERMINED);
     }
 
     @Test
@@ -112,6 +112,43 @@ class WelfareRegionResolverTest {
         assertThat(program("서울특별시 송파구").covers(user)).isEqualTo(WelfareRegion.Coverage.UNDETERMINED);
         assertThat(program("전라남도 영광군").covers(user)).isEqualTo(WelfareRegion.Coverage.OUTSIDE);
         assertThat(program("서울특별시").covers(user)).isEqualTo(WelfareRegion.Coverage.COVERED);
+    }
+
+    @Test
+    @DisplayName("기관 이름 일부를 시·군·구로 오인해도 지역 사업으로 확정하지 않는다")
+    void doesNotTreatFalseDistrictTokenAsARegion() {
+        WelfareRegion region = WelfareRegionResolver.forProgram(null, "보건의료인국가시험원", "");
+
+        assertThat(region).isEqualTo(WelfareRegion.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("시·도가 빠진 고유 시·군·구 사업은 같은 지역 사용자에게만 일치로 복원한다")
+    void matchesUniqueUnqualifiedDistrictAgainstUser() {
+        WelfareRegion gangdongUser = WelfareRegionResolver.forProfile("서울특별시 강동구 길동");
+        WelfareRegion recovered = WelfareRegionResolver.matchUnqualifiedDistrictToUser("강동구시설관리공단", gangdongUser);
+
+        assertThat(recovered).isEqualTo(new WelfareRegion(WelfareRegionScope.DISTRICT, "서울특별시", "강동구"));
+        assertThat(WelfareRegionResolver.matchUnqualifiedDistrictToUser(
+                "영광군시설관리공단", gangdongUser)).isEqualTo(WelfareRegion.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("동명이 있는 구는 사용자 주소만으로 시·도를 추정하지 않는다")
+    void leavesAmbiguousDistrictUnknown() {
+        WelfareRegion seoulJungGu = WelfareRegionResolver.forProfile("서울특별시 중구 명동");
+
+        assertThat(WelfareRegionResolver.matchUnqualifiedDistrictToUser("중구시설관리공단", seoulJungGu))
+                .isEqualTo(WelfareRegion.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("도시공사 명칭은 실제 시 이름으로 보정해 사용자 지역과 대조한다")
+    void normalizesCityCorporationSuffix() {
+        WelfareRegion user = WelfareRegionResolver.forProfile("경기도 고양시 일산동구");
+
+        assertThat(WelfareRegionResolver.matchUnqualifiedDistrictToUser("고양도시관리공사", user).district())
+                .isEqualTo("고양시");
     }
 
     private WelfareRegion program(String agencyName) {

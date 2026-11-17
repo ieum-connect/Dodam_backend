@@ -20,6 +20,7 @@ class Gov24WelfareConfigurationTest {
                         "dodam.welfare.gov24.base-url=https://example.test/api",
                         "dodam.welfare.gov24.service-key=top-secret",
                         "dodam.welfare.gov24.page-size=250",
+                        "dodam.welfare.gov24.detail-batch-size=25",
                         "dodam.welfare.gov24.connect-timeout=3s",
                         "dodam.welfare.gov24.read-timeout=12s",
                         "dodam.welfare.gov24.sync-enabled=true")
@@ -28,6 +29,7 @@ class Gov24WelfareConfigurationTest {
                     assertThat(properties.getBaseUrl()).isEqualTo(URI.create("https://example.test/api"));
                     assertThat(properties.getServiceKey()).isEqualTo("top-secret");
                     assertThat(properties.getPageSize()).isEqualTo(250);
+                    assertThat(properties.getDetailBatchSize()).isEqualTo(25);
                     assertThat(properties.getConnectTimeout()).isEqualTo(Duration.ofSeconds(3));
                     assertThat(properties.getReadTimeout()).isEqualTo(Duration.ofSeconds(12));
                     assertThat(properties.isSyncEnabled()).isTrue();
@@ -45,6 +47,12 @@ class Gov24WelfareConfigurationTest {
     @Test
     void rejectsPageSizeOutsidePortalLimit() {
         runner.withPropertyValues("dodam.welfare.gov24.page-size=0")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
+    void rejectsDetailBatchSizeOutsideSafetyLimit() {
+        runner.withPropertyValues("dodam.welfare.gov24.detail-batch-size=501")
                 .run(context -> assertThat(context).hasFailed());
     }
 }

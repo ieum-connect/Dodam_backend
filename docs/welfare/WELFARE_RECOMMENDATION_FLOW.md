@@ -166,6 +166,8 @@ erDiagram
     patients ||--o{ welfare_recommendation_runs : receives
     welfare_recommendation_runs ||--o{ welfare_recommendation_items : contains
     welfare_programs ||--o{ welfare_recommendation_items : recommended
+    welfare_programs ||--|| welfare_program_raw : stores_payload
+    welfare_programs ||--|{ welfare_program_regions : provides_in
     welfare_programs ||--o{ welfare_eligibility_rules : has
     welfare_programs ||--o{ welfare_favorites : saved
     patients ||--o{ welfare_favorites : saves
@@ -197,9 +199,22 @@ erDiagram
       varchar target_text
       varchar selection_criteria_text
       varchar agency_name
-      varchar region_scope
       boolean child_candidate
       boolean active
+    }
+    welfare_program_raw {
+      uuid program_id PK_FK
+      jsonb list_json
+      jsonb detail_json
+      jsonb condition_json
+      varchar payload_hash
+    }
+    welfare_program_regions {
+      uuid id PK
+      uuid program_id FK
+      varchar region_scope
+      varchar region_province
+      varchar region_district
     }
     welfare_recommendation_items {
       uuid run_id FK

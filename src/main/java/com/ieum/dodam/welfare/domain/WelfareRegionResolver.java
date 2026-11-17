@@ -12,7 +12,8 @@ import java.util.regex.Pattern;
  * 정부24 소관기관 정보와 사용자가 선택한 행정구역 문자열을 {@link WelfareRegion}으로 정규화한다.
  *
  * <p>소관기관명은 "전라남도 영광군", "서울특별시 강동구", "경기도" 처럼 시·도명이 앞에 오는 형식을
- * 기본으로 하되, 약칭("전남")과 시·도명이 빠진 형식("영광군")도 함께 해석한다.
+ * 기본으로 하되 약칭("전남")도 함께 해석한다. 시·도가 빠진 시·군·구명은 동명이인 지역으로
+ * 잘못 매칭될 수 있으므로 미확인으로 남긴다.
  */
 public final class WelfareRegionResolver {
 
@@ -27,6 +28,9 @@ public final class WelfareRegionResolver {
     private static final List<String> CENTRAL_AGENCY_TYPES = List.of("중앙", "국가");
     /** 지자체명으로 오인되기 쉬운 기관 접미사. */
     private static final List<String> NON_REGION_TOKENS = List.of("교육청", "지원청", "출입국", "세무서", "경찰서", "소방서", "공사", "공단", "지사", "본부", "센터");
+    /** 여러 시·도에 같은 이름이 있어 사용자 주소만으로 소관 시·도를 역추정하면 안 되는 지역명. */
+    private static final List<String> AMBIGUOUS_DISTRICTS = List.of(
+            "중구", "동구", "서구", "남구", "북구", "강서구", "고성군");
 
     static {
         PROVINCE_ALIASES.put("서울특별시", List.of("서울특별시", "서울시", "서울"));
@@ -86,6 +90,8 @@ public final class WelfareRegionResolver {
         WelfareRegion fromText = parse(safe(fallbackText), false);
         // 본문 추정은 시·도 단위까지만 신뢰한다. 본문에 등장한 시·군·구는 신청 창구 안내일 수 있다.
         if (fromText.hasProvince()) return new WelfareRegion(WelfareRegionScope.PROVINCE, fromText.province(), null);
+        // 시·도 없이 시·군·구처럼 보이는 토큰만 있는 기관명은 전국으로 확대하지 않는다.
+        if (!districtTokens(safe(agencyName)).isEmpty()) return WelfareRegion.UNKNOWN;
         // 지역 표기가 전혀 없는 중앙부처·공공기관 사업은 전국 단위로 본다.
         if (!safe(agencyName).isBlank()) return WelfareRegion.NATIONWIDE;
         return WelfareRegion.UNKNOWN;
@@ -111,6 +117,22 @@ public final class WelfareRegionResolver {
         return province == null ? WelfareRegion.UNKNOWN : new WelfareRegion(WelfareRegionScope.PROVINCE, province, null);
     }
 
+    /**
+     * 소관기관에 시·도가 빠졌어도 고유한 시·군·구명이 사용자의 주소와 정확히 같으면 그 사용자에
+     * 대해서만 지역 일치로 복원한다. 동명이 있는 지역은 오추천을 피하려고 미확인으로 남긴다.
+     */
+    public static WelfareRegion matchUnqualifiedDistrictToUser(String agencyName, WelfareRegion user) {
+        if (user == null || !user.hasProvince() || !user.hasDistrict()) return WelfareRegion.UNKNOWN;
+        for (String token : districtTokens(safe(agencyName))) {
+            String normalized = normalizeDistrictToken(token);
+            if (AMBIGUOUS_DISTRICTS.contains(normalized)) continue;
+            if (user.districtTokens().contains(normalized)) {
+                return new WelfareRegion(WelfareRegionScope.DISTRICT, user.province(), normalized);
+            }
+        }
+        return WelfareRegion.UNKNOWN;
+    }
+
     /** "재단법인화성시복지재단"처럼 기관 형태가 앞에 붙은 이름에서 지역명만 남긴다. */
     private static final List<String> ORG_PREFIXES = List.of("재단법인", "사단법인", "주식회사", "(재)", "(사)", "의료법인", "사회복지법인");
 
@@ -131,7 +153,7 @@ public final class WelfareRegionResolver {
             break;
         }
         List<String> districts = allowDistrict ? districtTokens(remainder) : List.of();
-        if (province == null && districts.isEmpty()) return WelfareRegion.UNKNOWN;
+        if (province == null) return WelfareRegion.UNKNOWN;
         if (districts.isEmpty()) return new WelfareRegion(WelfareRegionScope.PROVINCE, province, null);
         return new WelfareRegion(WelfareRegionScope.DISTRICT, province, String.join(" ", districts));
     }
@@ -143,9 +165,17 @@ public final class WelfareRegionResolver {
             String token = matcher.group(1);
             if (token.length() < 2) continue;
             if (NON_REGION_TOKENS.stream().anyMatch(token::contains)) continue;
+            token = normalizeDistrictToken(token);
             if (!tokens.contains(token)) tokens.add(token);
         }
         return tokens;
+    }
+
+    private static String normalizeDistrictToken(String token) {
+        // "고양도시관리공사"의 "고양도시"는 행정구역 고양시 + 기관 유형(도시공사)이다.
+        return token.endsWith("도시") && token.length() > 2
+                ? token.substring(0, token.length() - 2) + "시"
+                : token;
     }
 
     private static String safe(String value) { return value == null ? "" : value.trim(); }

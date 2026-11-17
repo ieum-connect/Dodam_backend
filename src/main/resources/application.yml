@@ -83,6 +83,7 @@ dodam:
       base-url: ${GOV24_WELFARE_BASE_URL:https://api.odcloud.kr/api}
       service-key: ${GOV24_WELFARE_SERVICE_KEY:}
       page-size: ${GOV24_WELFARE_PAGE_SIZE:100}
+      detail-batch-size: ${GOV24_WELFARE_DETAIL_BATCH_SIZE:50}
       connect-timeout: ${GOV24_WELFARE_CONNECT_TIMEOUT:2s}
       read-timeout: ${GOV24_WELFARE_READ_TIMEOUT:10s}
       sync-enabled: ${GOV24_WELFARE_SYNC_ENABLED:false}

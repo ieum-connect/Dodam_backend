@@ -27,6 +27,8 @@ public class WelfareSyncService {
     private static final List<String> SUPPORT_KEYWORDS = List.of("양육", "보육", "돌봄", "교육", "자녀", "아동");
     private static final List<String> EXCLUSION_KEYWORDS = List.of(
             "성폭력", "범죄피해", "피해자", "국선변호사", "진술조력", "해양사고", "어선", "옵서버");
+    private static final List<String> PROFESSIONAL_EXCLUSION_KEYWORDS = List.of(
+            "전문인력", "직무역량", "재직자", "사업주", "기업 실무자", "대학원생", "연구장학금");
     private final Gov24WelfareClient client;
     private final WelfareCatalogService catalog;
     private final WelfareSyncLogRepository logs;
@@ -45,27 +47,40 @@ public class WelfareSyncService {
     }
 
     public int synchronizeAll(int perPage) {
-        return synchronizeSince(perPage, null);
+        return synchronizeSince(perPage, null, 0);
+    }
+
+    public int synchronizeAll(int perPage, int detailBatchSize) {
+        return synchronizeSince(perPage, null, detailBatchSize);
     }
 
     public int synchronizeSince(int perPage, String modifiedFrom) {
+        return synchronizeSince(perPage, modifiedFrom, 0);
+    }
+
+    public int synchronizeSince(int perPage, String modifiedFrom, int detailBatchSize) {
         int page = 1;
         int saved = 0;
+        int remainingDetails = Math.max(0, detailBatchSize);
         while (true) {
             Instant started = clock.instant();
             Gov24PageResponse<Gov24ServiceListItem> response = client.serviceList(page, perPage, modifiedFrom);
             for (Gov24ServiceListItem item : response.data()) {
                 if (!isChildCandidate(item)) continue;
+                WelfareProgramSource source = toSource(item);
                 try {
-                    // 목록 응답만으로 검색·추천에 필요한 핵심 필드가 모두 제공된다.
-                    // 전체 동기화 중 서비스별 상세/조건 API를 직렬 호출하지 않아 외부 호출량과 시간을 제한한다.
-                    catalog.upsert(toSource(item));
-                    saved++;
+                    if (remainingDetails > 0 && catalog.needsEnrichment(source)) {
+                        remainingDetails--;
+                        source = enrich(item);
+                    }
                 } catch (Gov24WelfareClientException exception) {
                     logs.save(WelfareSyncLog.failed(WelfareSyncLog.Endpoint.SERVICE_DETAIL,
                             modifiedFrom == null ? WelfareSyncLog.SyncType.FULL : WelfareSyncLog.SyncType.INCREMENTAL,
                             exception.getReason().name(), "서비스 상세 동기화 실패", started, clock.instant()));
                 }
+                // 상세 호출이 실패하거나 배치 한도를 넘겨도 목록 데이터는 항상 최신화한다.
+                catalog.upsert(source);
+                saved++;
             }
             logs.save(WelfareSyncLog.completed(WelfareSyncLog.Endpoint.SERVICE_LIST,
                     modifiedFrom == null ? WelfareSyncLog.SyncType.FULL : WelfareSyncLog.SyncType.INCREMENTAL,
@@ -83,6 +98,9 @@ public class WelfareSyncService {
         String category = safe(item.serviceCategory());
         String all = String.join(" ", name, purpose, target, category).toLowerCase(Locale.ROOT);
         if (EXCLUSION_KEYWORDS.stream().anyMatch(all::contains)) return false;
+        boolean strongAudience = STRONG_CHILD_KEYWORDS.stream()
+                .anyMatch(keyword -> name.contains(keyword) || target.contains(keyword) || purpose.contains(keyword));
+        if (!strongAudience && PROFESSIONAL_EXCLUSION_KEYWORDS.stream().anyMatch(all::contains)) return false;
 
         int score = 0;
         score += STRONG_CHILD_KEYWORDS.stream().filter(name::contains).mapToInt(value -> 3).sum();
@@ -104,7 +122,7 @@ public class WelfareSyncService {
                 item.applicationDeadline(), item.deadlineType(), null, null, null, null, item.detailUrl(),
                 item.agencyCode(), item.agencyName(), item.agencyType(), item.departmentName(), item.receptionAgency(),
                 item.contact(), item.serviceCategory(), item.userCategory(), item.viewCount(), null, parseInstant(item.modifiedAt()),
-                isChildCandidate(item), raw, objectMapper.createObjectNode(), objectMapper.createObjectNode());
+                isChildCandidate(item), raw, null, null);
     }
 
     private WelfareProgramSource enrich(Gov24ServiceListItem item) {
@@ -112,11 +130,9 @@ public class WelfareSyncService {
         Gov24ServiceDetailItem detail = detailResponse.data().stream()
                 .filter(candidate -> item.serviceId().equals(candidate.serviceId()))
                 .findFirst().orElse(null);
-        Gov24PageResponse<Gov24SupportConditionsItem> conditionResponse = client.supportConditions(1, 1, item.serviceId());
+        Gov24PageResponse<Gov24SupportConditionsItem> conditionResponse = client.supportConditions(1, 1000, item.serviceId());
         JsonNode detailJson = detail == null ? objectMapper.createObjectNode() : objectMapper.valueToTree(detail);
-        JsonNode conditionJson = conditionResponse.data().isEmpty()
-                ? objectMapper.createObjectNode()
-                : objectMapper.valueToTree(conditionResponse.data().get(0));
+        JsonNode conditionJson = objectMapper.valueToTree(conditionResponse.data());
         WelfareProgramSource base = toSource(item);
         if (detail == null) return new WelfareProgramSource(base.externalServiceId(), base.name(), base.supportType(),
                 base.purposeSummary(), null, base.targetText(), base.selectionCriteriaText(), base.benefitText(),

@@ -22,7 +22,7 @@ public class Gov24WelfareConfiguration {
                                          com.ieum.dodam.welfare.command.application.WelfareSyncService syncService) {
         return args -> {
             if (properties.isSyncEnabled() && !properties.getServiceKey().isBlank()) {
-                syncService.synchronizeAll(properties.getPageSize());
+                syncService.synchronizeAll(properties.getPageSize(), properties.getDetailBatchSize());
             }
         };
     }

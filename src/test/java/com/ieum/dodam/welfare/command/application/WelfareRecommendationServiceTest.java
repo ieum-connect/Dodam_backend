@@ -77,6 +77,19 @@ class WelfareRecommendationServiceTest {
     }
 
     @Test
+    @DisplayName("시·도가 빠진 고유 구 사업도 같은 구 사용자에게 지역 일치로 추천한다")
+    void recoversUnqualifiedDistrictForMatchingUser() {
+        given(profile("서울특별시 강동구 길동").build(),
+                program("강동구 양육 지원", "강동구시설관리공단", "만 0세~5세 아동"));
+
+        RecommendationResult result = service.recommend(CHILD_ID, false);
+
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().get(0).regionScope()).isEqualTo(WelfareRegionScope.DISTRICT);
+        assertThat(result.items().get(0).regionLabel()).isEqualTo("서울특별시 강동구");
+    }
+
+    @Test
     @DisplayName("같은 지역에 중복 등록된 같은 사업명은 하나만 남긴다")
     void deduplicatesSameNameInSameRegion() {
         given(profile("서울특별시 강동구 길동").build(),

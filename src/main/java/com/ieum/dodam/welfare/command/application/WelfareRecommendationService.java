@@ -5,6 +5,7 @@ import com.ieum.dodam.patient.domain.repository.PatientRepository;
 import com.ieum.dodam.welfare.domain.WelfareIncomeBand;
 import com.ieum.dodam.welfare.domain.WelfareRegion;
 import com.ieum.dodam.welfare.domain.WelfareRegionScope;
+import com.ieum.dodam.welfare.domain.WelfareRegionResolver;
 import com.ieum.dodam.welfare.domain.entity.ChildWelfareProfile;
 import com.ieum.dodam.welfare.domain.entity.WelfareProgram;
 import com.ieum.dodam.welfare.domain.repository.ChildWelfareProfileRepository;
@@ -22,6 +23,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -49,21 +51,32 @@ public class WelfareRecommendationService {
     private final ChildWelfareProfileRepository profiles;
     private final WelfareProgramRepository programs;
     private final WelfareEligibilityEvaluator evaluator;
+    /** 사업별 제공 지역 전용 저장소. */
+    private final WelfareProgramRegionService programRegions;
     private final Clock clock;
 
     // 생성자가 둘이므로 Spring이 주입에 쓸 생성자를 명시한다(다른 하나는 테스트용 Clock 주입).
     @Autowired
     public WelfareRecommendationService(PatientRepository patients, ChildWelfareProfileRepository profiles,
-                                        WelfareProgramRepository programs, WelfareEligibilityEvaluator evaluator) {
-        this(patients, profiles, programs, evaluator, Clock.systemUTC());
+                                        WelfareProgramRepository programs, WelfareEligibilityEvaluator evaluator,
+                                        WelfareProgramRegionService programRegions) {
+        this(patients, profiles, programs, evaluator, programRegions, Clock.systemUTC());
+    }
+
+    /** 지역 테이블 없이 사업의 지역 컬럼만으로 판정한다(단위 테스트용). */
+    WelfareRecommendationService(PatientRepository patients, ChildWelfareProfileRepository profiles,
+                                 WelfareProgramRepository programs, WelfareEligibilityEvaluator evaluator, Clock clock) {
+        this(patients, profiles, programs, evaluator, null, clock);
     }
 
     WelfareRecommendationService(PatientRepository patients, ChildWelfareProfileRepository profiles,
-                                 WelfareProgramRepository programs, WelfareEligibilityEvaluator evaluator, Clock clock) {
+                                 WelfareProgramRepository programs, WelfareEligibilityEvaluator evaluator,
+                                 WelfareProgramRegionService programRegions, Clock clock) {
         this.patients = patients;
         this.profiles = profiles;
         this.programs = programs;
         this.evaluator = evaluator;
+        this.programRegions = programRegions;
         this.clock = clock;
     }
 
@@ -78,15 +91,31 @@ public class WelfareRecommendationService {
         ChildContext context = ChildContext.of(child, profile, months);
         if (months < 0 || months > MAX_AGE_MONTHS) return new RecommendationResult(false, context, List.of(), 0);
 
+        List<WelfareProgram> active = programs.findByActiveTrueAndChildCandidateTrueOrderByModifiedAtSourceDescIdDesc();
+        // 후보 전체의 제공 지역을 한 번에 읽어 사업마다 조회가 반복되지 않게 한다.
+        Map<UUID, List<WelfareRegion>> providedRegions = programRegions == null
+                ? Map.of()
+                : programRegions.regionsOf(active.stream().map(WelfareProgram::getId).toList());
+        WelfareRegion userRegion = profile == null ? null : profile.region();
+
         List<Candidate> candidates = new ArrayList<>();
         int excluded = 0;
-        for (WelfareProgram program : programs.findByActiveTrueAndChildCandidateTrueOrderByModifiedAtSourceDescIdDesc()) {
-            WelfareEligibilityEvaluator.Evaluation evaluation = evaluator.evaluate(program, profile, months);
+        for (WelfareProgram program : active) {
+            List<WelfareRegion> regions = programRegions == null
+                    ? List.of(program.region()) // 단위 테스트 전용 경로
+                    : providedRegions.getOrDefault(program.getId(), List.of(WelfareRegion.UNKNOWN));
+            WelfareRegion region = WelfareRegion.bestFor(regions, userRegion);
+            if (region.scope() == WelfareRegionScope.UNKNOWN) {
+                WelfareRegion userMatched = WelfareRegionResolver.matchUnqualifiedDistrictToUser(
+                        program.getAgencyName(), userRegion);
+                if (userMatched.scope() != WelfareRegionScope.UNKNOWN) region = userMatched;
+            }
+            WelfareEligibilityEvaluator.Evaluation evaluation = evaluator.evaluate(program, List.of(region), profile, months);
             if (!evaluation.recommendable() || evaluation.score() < MINIMUM_SCORE) {
                 excluded++;
                 continue;
             }
-            candidates.add(new Candidate(program, evaluation));
+            candidates.add(new Candidate(program, evaluation, region));
         }
 
         // 같은 사업명이 같은 지역에 중복 등록된 경우 더 높은 일치율 하나만 남긴다.
@@ -118,9 +147,8 @@ public class WelfareRecommendationService {
         return age.getYears() * 12 + age.getMonths();
     }
 
-    private record Candidate(WelfareProgram program, WelfareEligibilityEvaluator.Evaluation evaluation) {
-        WelfareRegion region() { return program.region(); }
-
+    private record Candidate(WelfareProgram program, WelfareEligibilityEvaluator.Evaluation evaluation,
+                             WelfareRegion region) {
         Instant modifiedAtSource() { return program.getModifiedAtSource(); }
 
         String dedupeKey() {
