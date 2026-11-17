@@ -69,12 +69,10 @@ class HealthRecordApiIntegrationTest {
                                                 + "\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("GLOBAL_002"));
-        mvc.perform(get("/api/health-records/" + id).header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.body").value("내 기록"));
         mvc.perform(get("/api/health-records").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items[0].recordId").value(id));
+                .andExpect(jsonPath("$.items[0].recordId").value(id))
+                .andExpect(jsonPath("$.items[0].body").value("내 기록"));
         mvc.perform(
                         put("/api/health-records/" + id)
                                 .header("Authorization", "Bearer " + token)
@@ -84,8 +82,6 @@ class HealthRecordApiIntegrationTest {
                 .andExpect(jsonPath("$.body").value("수정 기록"));
         mvc.perform(delete("/api/health-records/" + id).header("Authorization", "Bearer " + token))
                 .andExpect(status().isNoContent());
-        mvc.perform(get("/api/health-records/" + id).header("Authorization", "Bearer " + token))
-                .andExpect(status().isNotFound());
         mvc.perform(get("/api/health-records").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isEmpty());
@@ -144,11 +140,6 @@ class HealthRecordApiIntegrationTest {
                                 .header("Authorization", "Bearer " + token))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("GLOBAL_002"));
-        mvc.perform(
-                        get("/api/health-records/not-a-uuid")
-                                .header("Authorization", "Bearer " + token))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("GLOBAL_002"));
     }
 
     @Test
@@ -191,12 +182,7 @@ class HealthRecordApiIntegrationTest {
     }
 
     @Test
-    void bodyAndPathUuidUseSameCommonInputError() throws Exception {
-        mvc.perform(
-                        get("/api/health-records/not-a-uuid")
-                                .header("Authorization", "Bearer " + token))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("GLOBAL_002"));
+    void bodyUuidUsesCommonInputError() throws Exception {
         mvc.perform(
                         post("/api/health-records")
                                 .header("Authorization", "Bearer " + token)
@@ -216,15 +202,17 @@ class HealthRecordApiIntegrationTest {
                         UserRole.CAREGIVER);
         var relation = cares.request(caregiver, accounts.patientInviteCode(personal));
         String caregiverToken = jwt.create(caregiver);
+        String patientId = patients.findByUserId(personal.getId()).orElseThrow().getId().toString();
         mvc.perform(
-                        get("/api/health-records/" + id)
+                        get("/api/health-records?patientId=" + patientId)
                                 .header("Authorization", "Bearer " + caregiverToken))
                 .andExpect(status().isForbidden());
         cares.accept(personal, relation.getId());
         mvc.perform(
-                        get("/api/health-records/" + id)
+                        get("/api/health-records?patientId=" + patientId)
                                 .header("Authorization", "Bearer " + caregiverToken))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].recordId").value(id));
         mvc.perform(
                         put("/api/health-records/" + id)
                                 .header("Authorization", "Bearer " + caregiverToken)
@@ -241,7 +229,7 @@ class HealthRecordApiIntegrationTest {
                 .andExpect(status().isNoContent());
         cares.revoke(personal, relation.getId());
         mvc.perform(
-                        get("/api/health-records/" + id)
+                        get("/api/health-records?patientId=" + patientId)
                                 .header("Authorization", "Bearer " + caregiverToken))
                 .andExpect(status().isForbidden());
         mvc.perform(

@@ -2,14 +2,12 @@ package com.ieum.dodam.medical_document.domain.repository;
 
 import com.ieum.dodam.medical_document.query.model.AiDocumentCitationRow;
 import com.ieum.dodam.medical_document.query.model.AiDocumentFactRow;
-import com.ieum.dodam.medical_document.query.model.AiDocumentPageRow;
 import com.ieum.dodam.medical_document.domain.entity.AiExplanation;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 /** AI 설명 화면의 원문 근거 조회 전용 저장소입니다. */
@@ -68,48 +66,4 @@ public interface AiDocumentEvidenceRepository extends Repository<AiExplanation, 
         return findCitations(documentId, null);
     }
 
-    @Query(value = """
-            SELECT EXISTS (
-                SELECT 1
-                FROM explanation_citations ec
-                JOIN ai_explanations ae ON ae.id = ec.explanation_id
-                WHERE ae.document_id = :documentId AND ec.anchor_id = :anchorId
-            )
-            """, nativeQuery = true)
-    boolean existsAnchorInDocument(
-            @Param("documentId") UUID documentId,
-            @Param("anchorId") String anchorId
-    );
-
-    /** 페이지 렌더링 키가 있으면 우선하고, 없으면 원본 문서 키를 반환합니다. */
-    @Query(value = """
-            SELECT CAST(dp.id AS VARCHAR) AS "pageId", dp.page_no AS "pageNo",
-                   COALESCE(NULLIF(dp.rendered_storage_key, ''), d.storage_key) AS "storageKey",
-                   CASE WHEN NULLIF(dp.rendered_storage_key, '') IS NOT NULL THEN TRUE ELSE FALSE END AS "renderedPage",
-            CAST((
-                SELECT COALESCE(ex2.source_box, dc2.bounding_box)
-                FROM explanation_citations ec2
-                LEFT JOIN explanation_items ei2 ON ei2.id = ec2.explanation_item_id
-                LEFT JOIN extracted_items ex2 ON ex2.id = ei2.extracted_item_id
-                LEFT JOIN document_chunks dc2 ON dc2.id = ec2.chunk_id
-                WHERE ec2.anchor_id = :anchorId
-                  AND (ec2.page_id = dp.id OR ex2.page_id = dp.id OR dc2.page_id = dp.id)
-                ORDER BY ec2.created_at, ec2.id
-                LIMIT 1
-            ) AS VARCHAR) AS "sourceBox",
-                   dp.width_px AS "pageWidthPx", dp.height_px AS "pageHeightPx"
-            FROM document_pages dp JOIN documents d ON d.id = dp.document_id
-            WHERE dp.document_id = :documentId
-              AND dp.page_no = :pageNo
-              AND d.deleted_at IS NULL
-            """, nativeQuery = true)
-    Optional<AiDocumentPageRow> findPage(
-            @Param("documentId") UUID documentId,
-            @Param("pageNo") int pageNo,
-            @Param("anchorId") String anchorId
-    );
-
-    default Optional<AiDocumentPageRow> findPage(UUID documentId, int pageNo) {
-        return findPage(documentId, pageNo, null);
-    }
 }

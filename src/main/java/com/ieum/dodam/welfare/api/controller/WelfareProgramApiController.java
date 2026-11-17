@@ -3,7 +3,6 @@ package com.ieum.dodam.welfare.api.controller;
 import com.ieum.dodam.welfare.domain.entity.WelfareProgram;
 import com.ieum.dodam.welfare.query.application.WelfareProgramQueryService;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -11,12 +10,6 @@ import java.util.UUID;
 public class WelfareProgramApiController {
     private final WelfareProgramQueryService queries;
     public WelfareProgramApiController(WelfareProgramQueryService queries) { this.queries = queries; }
-
-    @GetMapping
-    public List<ProgramResponse> list(@RequestParam(required = false) String query,
-                                      @RequestParam(defaultValue = "20") int size) {
-        return queries.list(query, size).stream().map(ProgramResponse::from).toList();
-    }
 
     @GetMapping("/{programId}")
     public ProgramResponse detail(@PathVariable UUID programId) {

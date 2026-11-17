@@ -3,8 +3,6 @@ package com.ieum.dodam.medical_document.query.application;
 import com.ieum.dodam.global.exception.BusinessException;
 import com.ieum.dodam.medical_document.api.dto.response.AiDocumentCitationsResponseDto;
 import com.ieum.dodam.medical_document.api.dto.response.AiDocumentFactsResponseDto;
-import com.ieum.dodam.medical_document.api.dto.response.AiDocumentPageResponseDto;
-import com.ieum.dodam.medical_document.domain.DocumentStoragePort;
 import com.ieum.dodam.medical_document.domain.repository.AiDocumentEvidenceRepository;
 import com.ieum.dodam.medical_document.domain.repository.AiDocumentRepository;
 import com.ieum.dodam.medical_document.error.AiDocumentErrorCode;
@@ -16,8 +14,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,13 +24,9 @@ import java.util.UUID;
 @Slf4j
 public class AiDocumentEvidenceQueryService {
 
-    /** 서명 URL의 노출 시간을 짧게 제한합니다. */
-    private static final Duration PAGE_URL_TTL = Duration.ofMinutes(5);
-
     private final AiDocumentRepository documents;
     private final AiDocumentEvidenceRepository evidence;
     private final CareRelationPermissionService permissions;
-    private final DocumentStoragePort storage;
     private final ObjectMapper objectMapper;
 
     /** 문서의 설명값과 원문값 대조 결과를 조회합니다. */
@@ -64,47 +56,6 @@ public class AiDocumentEvidenceQueryService {
                 .map(this::citation)
                 .toList();
         return new AiDocumentCitationsResponseDto(documentId.toString(), citations);
-    }
-
-    /** 페이지 렌더링 파일 또는 원본 문서의 짧은 서명 URL을 생성합니다. */
-    public AiDocumentPageResponseDto page(User actor, UUID documentId, int pageNo, String anchorId) {
-        if (pageNo < 1) {
-            throw new BusinessException(AiDocumentErrorCode.INVALID_PAGE_REQUEST);
-        }
-        requirePermission(actor, documentId);
-        if (anchorId != null && !anchorId.isBlank() && !evidence.existsAnchorInDocument(documentId, anchorId)) {
-            throw new BusinessException(AiDocumentErrorCode.PAGE_NOT_FOUND);
-        }
-        var row = evidence.findPage(documentId, pageNo, anchorId)
-                .orElseThrow(() -> new BusinessException(AiDocumentErrorCode.PAGE_NOT_FOUND));
-        Instant expiresAt = Instant.now().plus(PAGE_URL_TTL);
-        return new AiDocumentPageResponseDto(
-                documentId.toString(),
-                pageNo,
-                storage.createSignedUrl(row.getStorageKey(), PAGE_URL_TTL),
-                expiresAt,
-                Boolean.TRUE.equals(row.getRenderedPage()),
-                anchorId,
-                sourceBox(row.getSourceBox()),
-                row.getPageWidthPx(),
-                row.getPageHeightPx()
-        );
-    }
-
-    public AiDocumentPageResponseDto page(User actor, UUID documentId, int pageNo) {
-        if (pageNo < 1) {
-            throw new BusinessException(AiDocumentErrorCode.INVALID_PAGE_REQUEST);
-        }
-        requirePermission(actor, documentId);
-        var row = evidence.findPage(documentId, pageNo)
-                .orElseThrow(() -> new BusinessException(AiDocumentErrorCode.PAGE_NOT_FOUND));
-        Instant expiresAt = Instant.now().plus(PAGE_URL_TTL);
-        return new AiDocumentPageResponseDto(
-                documentId.toString(), pageNo,
-                storage.createSignedUrl(row.getStorageKey(), PAGE_URL_TTL), expiresAt,
-                Boolean.TRUE.equals(row.getRenderedPage()), null,
-                sourceBox(row.getSourceBox()), row.getPageWidthPx(), row.getPageHeightPx()
-        );
     }
 
     /** 원문과 일치하지 않는 설명값은 절대 화면에 전달하지 않습니다. */

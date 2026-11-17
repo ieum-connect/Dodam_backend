@@ -6,14 +6,11 @@ import com.ieum.dodam.care_relation.domain.repository.CareRelationRepository;
 import com.ieum.dodam.global.exception.BusinessException;
 import com.ieum.dodam.global.status.AiJobStatus;
 import com.ieum.dodam.global.status.ResultStatus;
-import com.ieum.dodam.medical_document.api.dto.request.AiDocumentListRequestDto;
 import com.ieum.dodam.medical_document.domain.repository.AiDocumentExplanationRepository;
 import com.ieum.dodam.medical_document.domain.repository.AiDocumentRepository;
 import com.ieum.dodam.medical_document.query.application.AiDocumentQueryService;
 import com.ieum.dodam.medical_document.query.application.CareRelationPermissionService;
-import com.ieum.dodam.medical_document.query.model.AiDocumentDetailView;
 import com.ieum.dodam.medical_document.query.model.AiDocumentExplanationStatusView;
-import com.ieum.dodam.medical_document.query.model.AiDocumentListView;
 import com.ieum.dodam.medical_document.query.model.AiDocumentSectionsView;
 import com.ieum.dodam.patient.domain.Patient;
 import com.ieum.dodam.patient.domain.repository.PatientRepository;
@@ -27,7 +24,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.data.domain.Page;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -213,19 +209,6 @@ class AiDocumentQueryServiceTest {
     /** 환자와 활성 보호자가 문서 설명 조회 기능을 사용할 수 있는지 검증한다. */
     @Test
     void patientAndActiveCaregiverCanReadDocumentExplanation() {
-        AiDocumentListRequestDto request = new AiDocumentListRequestDto(null, null, null, null, 0, 20);
-
-        Page<AiDocumentListView> patientDocuments = queries.listDocuments(patient, request);
-        assertThat(patientDocuments.getTotalElements()).isEqualTo(1);
-        assertThat(patientDocuments.getContent().get(0).documentId()).isEqualTo(documentId);
-        assertThat(patientDocuments.getContent().get(0).jobStatus()).isEqualTo(AiJobStatus.SUCCEEDED);
-        assertThat(patientDocuments.getContent().get(0).resultStatus()).isEqualTo(ResultStatus.COMPLETE);
-
-        AiDocumentDetailView detail = queries.getDocument(patient, documentId);
-        assertThat(detail.title()).isEqualTo("검사 결과 쉬운 설명");
-        assertThat(detail.sectionCount()).isEqualTo(1);
-        assertThat(detail.citationCount()).isEqualTo(1);
-
         AiDocumentSectionsView sections = queries.getSections(patient, documentId, null);
         assertThat(sections.sections()).hasSize(1);
         assertThat(sections.sections().get(0).items()).hasSize(1);

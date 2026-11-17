@@ -3,9 +3,7 @@ package com.ieum.dodam.care_relation.query.application;
 import com.ieum.dodam.care_relation.domain.CareRelation;
 import com.ieum.dodam.care_relation.domain.CareRelationStatus;
 import com.ieum.dodam.care_relation.domain.repository.CareRelationRepository;
-import com.ieum.dodam.care_relation.error.CareRelationErrorCode;
 import com.ieum.dodam.care_relation.query.model.CareRelationView;
-import com.ieum.dodam.global.exception.BusinessException;
 import com.ieum.dodam.patient.domain.Patient;
 import com.ieum.dodam.patient.domain.repository.PatientRepository;
 import com.ieum.dodam.user.domain.User;
@@ -56,27 +54,6 @@ public class CareRelationQueryService {
         Map<UUID, User> counterpartsById = users.findAllById(counterpartIds(rows, me)).stream()
                 .collect(Collectors.toMap(User::getId, user -> user));
         return rows.stream().map(row -> toView(row, me, counterpartsById)).toList();
-    }
-
-    /** 현재 사용자가 당사자인 연결 한 건의 상태와 상대 정보를 조회한다. */
-    public CareRelationView detailFor(User me, UUID relationId) {
-        CareRelation row = relations.findById(relationId)
-                .orElseThrow(() -> new BusinessException(CareRelationErrorCode.RELATION_NOT_FOUND));
-        if (!isParticipant(row, me)) {
-            throw new BusinessException(CareRelationErrorCode.RELATION_ACCESS_DENIED);
-        }
-        Map<UUID, User> counterpartsById = users.findAllById(counterpartIds(List.of(row), me)).stream()
-                .collect(Collectors.toMap(User::getId, user -> user));
-        return toView(row, me, counterpartsById);
-    }
-
-    private boolean isParticipant(CareRelation row, User me) {
-        if (me.getRole() == UserRole.PATIENT) {
-            return patients.findByUserId(me.getId())
-                    .map(patient -> patient.getId().equals(row.getPatientId()))
-                    .orElse(false);
-        }
-        return me.getRole() == UserRole.CAREGIVER && me.getId().equals(row.getCaregiverId());
     }
 
     private Set<UUID> counterpartIds(List<CareRelation> rows, User me) {
