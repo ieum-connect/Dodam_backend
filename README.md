@@ -2,6 +2,8 @@
 
 <img src="./docs/assets/dodam_logo_effect.gif" width="100%" alt="도담 애니메이션 배너" />
 
+<img src="./docs/assets/dodam_service_overview.png" width="100%" alt="도담 서비스 소개" />
+
 # 도담 Backend
 
 ### 아이의 기록을 잇고, 가족의 돌봄을 이어가는 도담 💗
@@ -436,19 +438,224 @@ src/main/resources
 
 ---
 
-## 7. 📚 프로젝트 산출물
+## 7. 🤝 개발 컨벤션
+
+Frontend와 Backend는 같은 Git 흐름을 사용합니다. Backend 변경은 API 계약, Database Migration, 보안과 다른 저장소에 미치는 영향을 PR에서 명확히 설명해야 합니다.
+
+```mermaid
+flowchart LR
+    ISSUE["📌 Issue"] --> SYNC["🔄 develop 최신화"] --> BRANCH["🌿 작업 Branch"]
+    BRANCH --> CODE["💻 구현"] --> VERIFY["✅ Test · Verify"]
+    VERIFY --> COMMIT["📝 Commit"] --> PR["🔍 Pull Request"]
+    PR --> REVIEW["👀 Review · CI"] --> MERGE["🎉 Squash Merge"]
+```
+
+<details open>
+<summary><b>🌿 1. Branch Convention</b></summary>
+
+[Branch Convention 전체 문서](./docs/convention/BRANCH_CONVENTION.md)
+
+```text
+main                         # 배포 가능한 안정 Branch
+ └─ develop                  # 기능 통합·검증 Branch
+     ├─ feat/12-short-name   # 새 기능
+     ├─ fix/18-short-name    # Bug 수정
+     ├─ refactor/23-name     # 구조 개선
+     ├─ docs/25-name         # 문서
+     ├─ test/29-name         # Test
+     └─ chore/31-name        # 설정·의존성·Data 정리
+
+hotfix/35-short-name         # main 기준 긴급 운영 수정
+ ├─ main 반영
+ └─ develop에도 동일 변경 반영
+```
+
+| Type | 사용 시점 | 예시 |
+|---|---|---|
+| `feat` | Domain 기능·API 추가 | `feat/12-child-care-memo-time` |
+| `fix` | 오류·회귀·보안 문제 수정 | `fix/18-document-access` |
+| `refactor` | 동작 변화 없는 구조 개선 | `refactor/23-schedule-query` |
+| `docs` | README·명세·문서 수정 | `docs/25-readme-refresh` |
+| `test` | Test Fixture·검증 추가 | `test/29-auth-rejoin` |
+| `chore` | 설정·의존성·Data 정리 | `chore/31-unused-api` |
+
+- 형식은 `<type>/<issue-number>-<short-kebab-case-description>`입니다.
+- 최신 `develop`에서 분기하고 한 Branch에는 하나의 Issue와 하나의 목적만 담습니다.
+- `main`과 `develop`에는 직접 Push하지 않습니다.
+- Migration 충돌 가능성이 있으면 Branch 생성 직후 번호와 의존 관계를 팀에 공유합니다.
+</details>
+
+<details open>
+<summary><b>📝 2. Commit Convention</b></summary>
+
+[Commit Convention 전체 문서](./docs/convention/COMMIT_CONVENTION.md)
+
+```text
+<type>(<scope>): <english subject>
+
+<선택: 변경 이유와 구현 방식>
+<선택: Refs: #issue-number>
+```
+
+```text
+feat(schedule): support recurring prescription approval
+fix(auth): prevent withdrawn record mutation
+docs(readme): document backend architecture
+test(document): cover duplicate upload idempotency
+```
+
+- Type·Scope·Subject는 소문자 영어로 쓰고 제목 끝에 마침표를 붙이지 않습니다.
+- Subject는 명령형 현재 시제로 작성하고 하나의 Commit에는 하나의 논리적 변경만 담습니다.
+- Schema·Entity·Service·Test처럼 함께 변경되어야 하는 파일은 하나의 완결된 Commit으로 묶습니다.
+- 권장 Scope: `auth`, `user`, `patient`, `relation`, `record`, `visit`, `document`, `chat`, `schedule`, `notification`, `vaccination`, `welfare`, `migration`, `readme`.
+</details>
+
+<details open>
+<summary><b>🔀 3. Pull Request Convention</b></summary>
+
+[Pull Request Convention 전체 문서](./docs/convention/PR_CONVENTION.md)
+
+```text
+PR 제목: <type>(<scope>): <한국어 변경 내용>
+예시: feat(schedule): 반복 복약 승인 기능 추가
+```
+
+| 필수 항목 | 작성 내용 |
+|---|---|
+| 무엇을 구현했나요? | 사용자 또는 시스템 관점의 변경 사항 |
+| 참고할 사항 | API·DB·환경 변수·보안·연동 저장소 영향 |
+| 테스트 | 실행 명령, 자동·수동 결과, 미확인 항목과 사유 |
+| Migration | 추가 파일, 적용 순서, Rollback·호환성 고려 |
+| 연결된 이슈 | `Closes #이슈번호` |
+
+- 대상 Branch는 원칙적으로 `develop`이며 Draft PR로 조기 공유할 수 있습니다.
+- CI 통과와 1명 이상 Approve 후 Squash and merge하고 작업 Branch를 삭제합니다.
+- API 응답 변경은 Frontend·AI Backend 영향과 하위 호환성을 명시합니다.
+- 운영 설정·Secret 이름·S3·Firebase·내부 Token 변경은 배포 순서를 기록합니다.
+</details>
+
+<details>
+<summary><b>🧩 4. Issue · Pull Request Templates</b></summary>
+
+| Template | 사용 시점 | 바로가기 |
+|---|---|---|
+| 기능 Issue | 신규 Domain·API·고도화 작업 | [기능 이슈 템플릿](./.github/ISSUE_TEMPLATE/기능-이슈-템플릿.md) |
+| Bug Issue | 오류·회귀·운영 문제 보고 | [버그 이슈 템플릿](./.github/ISSUE_TEMPLATE/버그-이슈-템플릿.md) |
+| Pull Request | 구현 완료 후 Review 요청 | [Backend PR 템플릿](./.github/PULL_REQUEST_TEMPLATE.md) |
+
+<details>
+<summary><b>📌 기능 Issue 작성 골격</b></summary>
+
+```markdown
+## 🏷️ 기능 분류
+- 대분류 / 중분류 / 소분류 / 관련 기능 코드
+
+## 🎯 개발 목적 (Why)
+## 📌 구현 기능 요약 (What)
+## 📋 상세 요구사항 (Requirements)
+## 📂 작업 대상 Package · Class와 역할
+## 🔌 API 규격 (Method · Endpoint · Request · Response)
+## 🛠️ 세부 구현 체크리스트
+## 🏁 완료 조건 (Definition of Done)
+## 🧪 Unit · Integration · API 테스트
+## 📎 관련 명세·화면 설계·기술 자료
+```
+
+</details>
+
+<details>
+<summary><b>🐛 Bug Issue 작성 골격</b></summary>
+
+```markdown
+## 🏷️ 관련 기능 코드 · 실행 환경 · 우선순위
+## 🚨 발생 상황
+## 🔁 재현 방법 (Steps to Reproduce)
+## 📈 기대 동작 / 📉 실제 동작
+## 🛠️ 수정 범위 및 원인 추정
+## 🏁 완료 조건 (Definition of Done)
+## 📎 Stack Trace · Request · Database 상태
+```
+
+</details>
+
+<details>
+<summary><b>🔀 Pull Request 작성 골격</b></summary>
+
+```markdown
+## 무엇을 구현했나요?
+- 사용자 또는 시스템 관점의 변경 사항
+
+## 참고할 사항
+- API·DB·Migration·환경 변수·연동 저장소 영향
+
+## 테스트
+- 실행한 명령어
+- 자동·수동 검증 결과
+- 확인하지 못한 항목과 사유
+
+## 연결된 이슈
+- Closes #이슈번호
+
+## Definition of Done
+- [ ] 요구사항과 Issue 완료 조건을 충족했다
+- [ ] 관련 Test와 Build가 통과했다
+- [ ] 인증·권한·민감정보 노출을 확인했다
+- [ ] API·DB 호환성과 Migration 영향을 확인했다
+- [ ] 최소 1명의 Review 승인을 받았다
+```
+
+</details>
+
+</details>
+
+<details>
+<summary><b>☕ 5. Backend Code Style</b></summary>
+
+| 영역 | 규칙 |
+|---|---|
+| Package | Domain 기준으로 나누고 계층 간 의존 방향을 유지합니다. |
+| Controller | HTTP 변환과 인증 정보 전달만 담당하고 Business Logic을 두지 않습니다. |
+| DTO | 요청·응답 계약을 명시하며 Entity를 API 응답으로 직접 노출하지 않습니다. |
+| Service | Command와 Query 책임을 분리하고 Transaction 경계를 명확히 합니다. |
+| Entity | 상태 변경 메서드로 불변식과 권한 없는 변경을 차단합니다. |
+| Repository | 조회 의도가 드러나는 이름을 사용하고 N+1·대량 조회를 검토합니다. |
+| Exception | Domain별 Error Code와 공통 응답 형식을 사용합니다. |
+| Migration | 적용된 Flyway 파일을 수정하지 않고 새 Version Migration을 추가합니다. |
+
+- 생성·수정·삭제 API는 인증, 아이 접근 권한, 입력 검증과 동시성 정책을 확인합니다.
+- 외부 연동은 Timeout·Retry·Idempotency와 실패 상태를 설계합니다.
+- 의료 문서 원문과 개인정보는 최소 범위로 조회하고 Log에 남기지 않습니다.
+- 주석은 코드의 동작보다 제약과 설계 결정 이유를 설명할 때 작성합니다.
+</details>
+
+<details>
+<summary><b>✅ 6. 리뷰 전 체크리스트</b></summary>
+
+- [ ] 최신 `develop`을 반영했고 불필요한 변경 파일이 없습니다.
+- [ ] Windows `./mvnw.cmd verify` 또는 macOS·Linux `./mvnw verify`가 통과합니다.
+- [ ] 인증·인가와 다른 아이의 데이터 접근 차단을 확인했습니다.
+- [ ] API 계약과 오류 응답의 하위 호환성을 확인했습니다.
+- [ ] Migration 순서, Constraint, 기존 Data 영향을 확인했습니다.
+- [ ] Transaction·Lock·Idempotency·중복 요청을 검토했습니다.
+- [ ] Secret·Credential·의료 문서·개인정보가 Commit이나 Log에 포함되지 않았습니다.
+- [ ] Frontend·AI Backend·Infra 영향과 배포 순서를 PR에 기록했습니다.
+</details>
+
+---
+
+## 8. 📚 프로젝트 산출물
 
 | 산출물 | 설명 | 링크 |
 |---|---|---|
 | 📋 요구사항 명세서 | 기능 요구사항, 범위와 검증 기준 | [요구사항 명세서 열기](https://docs.google.com/spreadsheets/d/1Pi5tciZ795vPqvacpGjOlpbyNY47Vwr6-8HxIm9lkYI/edit?gid=305644033#gid=305644033) |
-| 📝 기획서 | 배경, 사용자 문제, 기능과 서비스 흐름 | [기획서 열기](https://docs.google.com/document/d/1-YzN9Gbwpwyt9RQgWLjE3HoCDPSbW14VlSZtkL0kwyA/edit?tab=t.0) |
-| 🖼️ 화면 설계서 | 화면과 사용자 상호작용 정의 | 🔗 추후 링크 추가 |
+| 📝 기획서 | 배경, 사용자 문제, 기능과 서비스 흐름 | [기획서 열기](https://drive.google.com/file/d/1rl487qoTOaNZGNvTx60XRO-9JFMlxcUd/view?usp=sharing) |
+| 🖼️ 화면 설계서 | 화면과 사용자 상호작용 정의 | [화면 설계서 열기](https://claude.ai/artifact/HbHHm56cdtbRuStCtJJt2T#page-dcb81aee8d83) |
 | 🗃️ ERD | 핵심 Entity와 관계 | [ERD 열기](https://claude.ai/artifact/8c1WMx1Eji4CSEDgtes71e) |
 | 📡 API 명세서 | Frontend·Spring·AI Backend의 요청·응답 계약 | 🔗 추후 링크 추가 |
 
 ---
 
-## 8. 🚀 Local 실행
+## 9. 🚀 Local 실행
 
 <details open>
 <summary><b>▶️ Database와 Backend 실행</b></summary>
@@ -482,7 +689,7 @@ docker compose up -d
 
 ---
 
-## 9. 🔐 환경 변수와 보안
+## 10. 🔐 환경 변수와 보안
 
 <details open>
 <summary><b>⚙️ 핵심 환경 변수</b></summary>
@@ -522,7 +729,7 @@ DODAM_STORAGE_S3_REGION=
 
 ---
 
-## 10. ✅ Test와 검증
+## 11. ✅ Test와 검증
 
 <details open>
 <summary><b>🧪 실행 명령어</b></summary>
@@ -553,95 +760,6 @@ DODAM_STORAGE_S3_REGION=
 
 ---
 
-## 11. 🤝 개발 컨벤션
-
-<details open>
-<summary><b>🌿 Branch Convention과 구조</b></summary>
-
-[Branch Convention 전체 문서](./docs/convention/BRANCH_CONVENTION.md)
-
-~~~text
-main                         # 배포 가능한 안정 Branch
- └─ develop                  # 기능 통합·검증 Branch
-     ├─ feat/12-short-name   # 새 기능
-     ├─ fix/18-short-name    # Bug 수정
-     ├─ refactor/23-name     # 구조 개선
-     ├─ docs/25-name         # 문서
-     ├─ test/29-name         # Test
-     └─ chore/31-name        # 설정·의존성·Data 정리
-
-hotfix/35-short-name         # main 기준 긴급 운영 수정
- ├─ main 반영
- └─ develop에도 동일 변경 반영
-~~~
-
-~~~text
-Branch 이름: <type>/<issue-number>-<short-kebab-case-description>
-예시: feat/12-child-care-memo-time
-~~~
-
-</details>
-
-<details>
-<summary><b>📝 Commit Convention과 구조</b></summary>
-
-[Commit Convention 전체 문서](./docs/convention/COMMIT_CONVENTION.md)
-
-~~~text
-<type>(<scope>): <english subject>
-
-<선택: 변경 이유와 구현 방식>
-<선택: Refs: #issue-number>
-~~~
-
-~~~text
-feat(health-record): persist selected record time
-fix(auth): prevent expired token reuse
-docs(readme): document backend architecture
-test(care-relation): cover invite acceptance conflict
-~~~
-
-- Type, Scope와 Subject는 영어로 작성합니다.
-- 하나의 Commit에는 하나의 논리적 변경만 담습니다.
-- 최종 Squash Commit 제목도 영어 Convention을 지킵니다.
-
-</details>
-
-<details>
-<summary><b>🔀 Pull Request Convention과 구조</b></summary>
-
-[Pull Request Convention 전체 문서](./docs/convention/PR_CONVENTION.md)
-
-~~~text
-PR 제목
-<type>(<scope>): <한국어 변경 내용>
-
-예시
-feat(health-record): 육아 메모 시간 선택 기능 추가
-~~~
-
-~~~markdown
-## 무엇을 구현했나요?
-- 사용자 또는 시스템 관점의 변경 사항
-
-## 참고할 사항
-- API·DB·환경 변수·연동 저장소 영향
-
-## 테스트
-- 실행한 명령과 수동 확인 결과
-- 테스트하지 못한 항목과 사유
-
-## 연결된 이슈
-- Closes #이슈번호
-~~~
-
-~~~text
-Issue 생성 → 최신 develop → 작업 Branch → Test
-          → develop 대상 PR → CI 통과 → 1명 이상 Approve
-          → Squash and merge → 작업 Branch 삭제
-~~~
-
-</details>
 
 ---
 
