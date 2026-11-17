@@ -436,7 +436,30 @@ src/main/resources
 
 ---
 
-## 8. 📚 프로젝트 산출물
+## 6.5 🤝 개발 컨벤션
+
+Frontend와 동일한 규칙으로 브랜치·커밋·PR을 관리합니다.
+
+<details open>
+<summary><b>🌿 Branch · Commit · Pull Request Convention</b></summary>
+
+- [Branch Convention 전체 문서](./docs/convention/BRANCH_CONVENTION.md)
+- [Commit Convention 전체 문서](./docs/convention/COMMIT_CONVENTION.md)
+- [PR Convention 전체 문서](./docs/convention/PR_CONVENTION.md)
+
+```text
+main ← develop ← feat/* · fix/* · refactor/* · docs/* · test/* · chore/*
+Branch: <type>/<issue-number>-<short-kebab-case-description>
+Commit: <type>(<scope>): <english subject>
+PR:     변경 요약 · 영향 범위 · 테스트 결과 · 연결 이슈
+```
+
+Issue 생성 → 최신 develop → 작업 Branch → Test → Commit → develop 대상 PR → CI·리뷰 → Squash merge 순서로 진행합니다.
+</details>
+
+---
+
+## 7. 📚 프로젝트 산출물
 
 | 산출물 | 설명 | 링크 |
 |---|---|---|
@@ -448,7 +471,7 @@ src/main/resources
 
 ---
 
-## 9. 🚀 Local 실행
+## 8. 🚀 Local 실행
 
 <details open>
 <summary><b>▶️ Database와 Backend 실행</b></summary>
@@ -482,7 +505,7 @@ docker compose up -d
 
 ---
 
-## 10. 🔐 환경 변수와 보안
+## 9. 🔐 환경 변수와 보안
 
 <details open>
 <summary><b>⚙️ 핵심 환경 변수</b></summary>
@@ -522,7 +545,7 @@ DODAM_STORAGE_S3_REGION=
 
 ---
 
-## 11. ✅ Test와 검증
+## 10. ✅ Test와 검증
 
 <details open>
 <summary><b>🧪 실행 명령어</b></summary>
@@ -553,7 +576,7 @@ DODAM_STORAGE_S3_REGION=
 
 ---
 
-## 6.5 🤝 개발 컨벤션
+## 📚 개발 컨벤션 상세 참고
 
 <details open>
 <summary><b>🌿 Branch Convention과 구조</b></summary>
@@ -645,7 +668,7 @@ Issue 생성 → 최신 develop → 작업 Branch → Test
 
 ---
 
-## 13. 🔗 도담 저장소 바로가기
+## 11. 🔗 도담 저장소 바로가기
 
 | 저장소 | 담당 영역 | 바로가기 |
 |---|---|---|
