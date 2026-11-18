@@ -208,6 +208,24 @@ class CalendarApiIntegrationTest {
     }
 
     @Test
+    void prescriptionRepeatExplainsInvalidDatesAndWeekdaysWithoutWriting() throws Exception {
+        ReflectionTestUtils.setField(candidate, "type", ActionItemType.MEDICATION);
+        actions.saveAndFlush(candidate);
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (var entry : java.util.Map.of("2026-11-14", "SCHEDULE_END_BEFORE_START", "2026-11-15", "SCHEDULE_EMPTY_PERIOD").entrySet()) {
+            var payload = java.util.Map.of("startsAt", "2026-11-15T00:00:00Z", "weekdayMask", 1,
+                    "endDate", entry.getKey(), "timeZone", "Asia/Seoul");
+            mvc.perform(post("/api/action-items/{id}/approve", candidate.getId())
+                    .header("Authorization", "Bearer " + token).contentType("application/json")
+                    .content(mapper.writeValueAsString(payload)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(entry.getValue()));
+        }
+        assertThat(series.findById(candidate.getId())).isEmpty();
+        assertThat(schedules.findByActionItemId(candidate.getId())).isEmpty();
+    }
+
+    @Test
     void prescriptionApprovalCreatesDailySeriesOnceAndKeepsSource() throws Exception {
         ReflectionTestUtils.setField(candidate, "type", ActionItemType.MEDICATION);
         actions.saveAndFlush(candidate);
