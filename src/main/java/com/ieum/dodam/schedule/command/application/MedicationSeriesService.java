@@ -43,7 +43,13 @@ public class MedicationSeriesService {
         // Assigned UUIDs may be merged; advance the managed instance returned by save.
         desired=series.saveAndFlush(desired);
         materialize(desired,start,start.plusDays(31));
-        desired.advance(start.plusDays(32));
+        // Keep the initial history, but do not make the background job replay every
+        // day since an arbitrarily old start. Other history is filled by bounded
+        // calendar queries through ensureRange.
+        LocalDate today=LocalDate.now(zone);
+        LocalDate currentStart=start.isBefore(today)?today:start;
+        if(currentStart.isAfter(start)) materialize(desired,currentStart,currentStart.plusDays(31));
+        desired.advance(currentStart.plusDays(32));
         return desired;
     }
     @Transactional(readOnly=true)

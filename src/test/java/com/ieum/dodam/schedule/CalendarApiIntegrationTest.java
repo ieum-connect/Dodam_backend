@@ -126,6 +126,37 @@ class CalendarApiIntegrationTest {
     }
 
     @Test
+    void ancientOpenEndedRepeatDoesNotReplayHistoryInBackground() {
+        var zone = ZoneId.of("Asia/Seoul");
+        var today = LocalDate.now(zone);
+        var start = LocalDate.of(1, 1, 1);
+        var rule = recurring.create(owner, patientId, UUID.randomUUID(), "오래된 복약", null,
+                start.atTime(9, 0).atZone(zone).toInstant(), zone.getId(), null);
+        assertThat(schedules.count()).isEqualTo(64);
+        assertThat(rule.getNextDate()).isEqualTo(today.plusDays(32));
+        for (int i = 0; i < 20; i++) recurring.replenish(rule.getId(), Instant.now());
+        assertThat(schedules.count()).isEqualTo(64);
+        assertThat(series.dueIds(today.plusDays(31))).doesNotContain(rule.getId());
+        // Historic months remain available on demand, without duplicate rows.
+        var from = LocalDate.of(2020, 1, 1).atStartOfDay(zone).toInstant();
+        var to = LocalDate.of(2020, 2, 1).atStartOfDay(zone).toInstant();
+        recurring.ensureRange(patientId, from, to);
+        recurring.ensureRange(patientId, from, to);
+        assertThat(schedules.count()).isEqualTo(95);
+        assertThat(rule.getNextDate()).isEqualTo(today.plusDays(32));
+    }
+
+    @Test
+    void ancientFinishedRepeatOnlyCreatesItsFiniteHistory() {
+        var zone = ZoneId.of("Asia/Seoul");
+        var start = LocalDate.of(1, 1, 1);
+        var rule = recurring.create(owner, patientId, UUID.randomUUID(), "지난 처방", null,
+                start.atTime(9, 0).atZone(zone).toInstant(), zone.getId(), start.plusDays(1));
+        for (int i = 0; i < 20; i++) recurring.replenish(rule.getId(), Instant.now());
+        assertThat(schedules.count()).isEqualTo(2);
+    }
+
+    @Test
     void manualDailyRepeatAcceptsYesterdayThroughTodayAndRejectsReversedDates() throws Exception {
         var zone = ZoneId.of("Asia/Seoul");
         var today = LocalDate.now(zone);
