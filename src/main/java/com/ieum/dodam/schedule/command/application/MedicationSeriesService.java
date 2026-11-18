@@ -26,8 +26,8 @@ public class MedicationSeriesService {
         try { zone=ZoneId.of(timeZone); } catch(Exception e) { throw invalid(); }
         if(requestId==null || startsAt==null || title==null || title.isBlank() || title.length()>200 || (notes!=null && notes.length()>500)) throw invalid();
         LocalDate start=startsAt.atZone(zone).toLocalDate();
-        // A recurring rule starts today or later. Historic one-off records use the existing schedule API.
-        if(start.isBefore(LocalDate.now(zone)) || start.getYear()>9998 || (endDate!=null && (endDate.isBefore(start) || endDate.getYear()>9998))) throw invalid();
+        // Past prescription periods can be recorded; occurrences remain uncompleted.
+        if(start.getYear()<1 || start.getYear()>9998 || (endDate!=null && (endDate.isBefore(start) || endDate.getYear()>9998))) throw invalid();
         schedules.lockPatient(patientId).orElseThrow(MedicationSeriesService::invalid);
         var desired=MedicationSeries.create(requestId,patientId,title,notes,startsAt,zone,endDate);
         desired.changeRule(weekdays, endDate, desired.getTimeOfDay(), start);
