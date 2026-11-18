@@ -145,7 +145,7 @@ public class UserAccountService {
         if ("MINJI".equals(account)) return ensureDemoUser(UserRole.CAREGIVER);
         if ("SOONJA".equals(account)) return ensureNamedCaregiver("soonja", "김순자");
         String name = switch (account) {
-            case "JIHUN" -> "박지훈";
+            case "JIHUN" -> "이지훈";
             case "SEOYEON" -> "이서연";
             default -> throw new BusinessException(UserErrorCode.INVALID_ROLE);
         };
