@@ -27,7 +27,7 @@ class ShowcaseLoginIntegrationTest {
         mvc.perform(post("/api/demo/login").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"account\":\"JIHUN\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("박지훈"));
+                .andExpect(jsonPath("$.name").value("이지훈"));
     }
 
     @Test

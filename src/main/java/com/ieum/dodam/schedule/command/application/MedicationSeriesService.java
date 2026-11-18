@@ -23,11 +23,20 @@ public class MedicationSeriesService {
         access.requirePatient(actor,patientId);
         requireWeekdays(weekdays);
         ZoneId zone;
-        try { zone=ZoneId.of(timeZone); } catch(Exception e) { throw invalid(); }
-        if(requestId==null || startsAt==null || title==null || title.isBlank() || title.length()>200 || (notes!=null && notes.length()>500)) throw invalid();
+        try { zone=ZoneId.of(timeZone); } catch(Exception e) { throw new BusinessException(ScheduleErrorCode.TIME_ZONE); }
+        if (startsAt == null) throw new BusinessException(ScheduleErrorCode.START_REQUIRED);
+        if (notes != null && notes.length() > 500) throw new BusinessException(ScheduleErrorCode.NOTES_TOO_LONG);
+        if(requestId==null || title==null || title.isBlank() || title.length()>200) throw invalid();
         LocalDate start=startsAt.atZone(zone).toLocalDate();
-        // A recurring rule starts today or later. Historic one-off records use the existing schedule API.
-        if(start.isBefore(LocalDate.now(zone)) || start.getYear()>9998 || (endDate!=null && (endDate.isBefore(start) || endDate.getYear()>9998))) throw invalid();
+        // Past prescription periods can be recorded; occurrences remain uncompleted.
+        if(start.getYear()<1 || start.getYear()>9998 || (endDate!=null && (endDate.getYear()<1 || endDate.getYear()>9998))) throw new BusinessException(ScheduleErrorCode.DATE_RANGE);
+        if(endDate!=null && endDate.isBefore(start)) throw new BusinessException(ScheduleErrorCode.END_BEFORE_START);
+        if (endDate != null) {
+            boolean included = false;
+            for (int offset = 0; offset < 7 && !start.plusDays(offset).isAfter(endDate); offset++)
+                if ((weekdays & (1 << (start.plusDays(offset).getDayOfWeek().getValue() - 1))) != 0) included = true;
+            if (!included) throw new BusinessException(ScheduleErrorCode.EMPTY_PERIOD);
+        }
         schedules.lockPatient(patientId).orElseThrow(MedicationSeriesService::invalid);
         var desired=MedicationSeries.create(requestId,patientId,title,notes,startsAt,zone,endDate);
         desired.changeRule(weekdays, endDate, desired.getTimeOfDay(), start);
@@ -43,7 +52,13 @@ public class MedicationSeriesService {
         // Assigned UUIDs may be merged; advance the managed instance returned by save.
         desired=series.saveAndFlush(desired);
         materialize(desired,start,start.plusDays(31));
-        desired.advance(start.plusDays(32));
+        // Keep the initial history, but do not make the background job replay every
+        // day since an arbitrarily old start. Other history is filled by bounded
+        // calendar queries through ensureRange.
+        LocalDate today=LocalDate.now(zone);
+        LocalDate currentStart=start.isBefore(today)?today:start;
+        if(currentStart.isAfter(start)) materialize(desired,currentStart,currentStart.plusDays(31));
+        desired.advance(currentStart.plusDays(32));
         return desired;
     }
     @Transactional(readOnly=true)
@@ -117,7 +132,7 @@ public class MedicationSeriesService {
         schedules.flush();
     }
     private static void requireWeekdays(int weekdays) {
-        if (weekdays < 1 || weekdays > 127) throw invalid();
+        if (weekdays < 1 || weekdays > 127) throw new BusinessException(ScheduleErrorCode.WEEKDAY_REQUIRED);
     }
     private static BusinessException invalid() { return new BusinessException(GlobalErrorCode.INVALID_REQUEST); }
 }

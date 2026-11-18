@@ -50,6 +50,11 @@ public class ScheduleReminderService {
     @Transactional
     public void deliverDue(Instant now) {
         for (var schedule : schedules.lockDue(now, PageRequest.of(0, 100))) {
+            // Backfilled doses are history, not a request to take old medication now.
+            if (schedule.getSeriesId() != null && schedule.getStartsAt().isBefore(schedule.getCreatedAt())) {
+                schedule.markReminded(now);
+                continue;
+            }
             var patient = patients.findById(schedule.getPatientId()).orElseThrow();
             var recipients = new HashSet<java.util.UUID>();
             recipients.add(patient.getUserId());

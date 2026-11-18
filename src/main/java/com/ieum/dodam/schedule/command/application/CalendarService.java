@@ -193,7 +193,7 @@ public class CalendarService {
             return null;
         }
         Instant date = startsAt != null ? startsAt : item.getDueAt();
-        if (date == null) throw invalid();
+        if (date == null) throw new BusinessException(com.ieum.dodam.schedule.domain.ScheduleErrorCode.START_REQUIRED);
         ScheduleType type =
                 switch (item.getType()) {
                     case MEDICATION -> ScheduleType.MEDICATION;
@@ -202,7 +202,8 @@ public class CalendarService {
                     case CAUTION, OTHER -> ScheduleType.OTHER;
                 };
         if (weekdayMask != null) {
-            if (type != ScheduleType.MEDICATION || endDate == null) throw invalid();
+            if (type != ScheduleType.MEDICATION) throw invalid();
+            if (endDate == null) throw new BusinessException(com.ieum.dodam.schedule.domain.ScheduleErrorCode.END_REQUIRED);
             var rule = recurring.create(actor, visit.getPatientId(), id, item.getTitle(),
                     item.getDescription(), date, timeZone, endDate, weekdayMask);
             // The first occurrence carries the unique source link. Repeated approvals

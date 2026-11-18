@@ -103,6 +103,82 @@ class CalendarApiIntegrationTest {
     }
 
     @Test
+    void pastDailyPrescriptionCanBeApprovedWithoutDuplicateDosesOrRetroactiveAlerts() throws Exception {
+        ReflectionTestUtils.setField(candidate, "type", ActionItemType.MEDICATION);
+        actions.saveAndFlush(candidate);
+        var zone = ZoneId.of("Asia/Seoul");
+        var day = LocalDate.now(zone).minusDays(2);
+        var body = """
+                {"startsAt":"%s","weekdayMask":127,"endDate":"%s","timeZone":"Asia/Seoul"}
+                """.formatted(day.atTime(9, 0).atZone(zone).toInstant(), day.plusDays(1));
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mvc.perform(post("/api/action-items/{id}/approve", candidate.getId())
+                    .header("Authorization", "Bearer " + token).contentType("application/json").content(body))
+                    .andExpect(status().isOk());
+        }
+        var rows = schedules.findAll().stream().filter(row -> candidate.getId().equals(row.getSeriesId())).toList();
+        assertThat(rows).hasSize(2).allSatisfy(row -> assertThat(row.getStatus()).isEqualTo("SCHEDULED"));
+        assertThat(rows.stream().map(row -> row.getOccurrenceDate())).containsExactlyInAnyOrder(day, day.plusDays(1));
+        var before = notifications.count();
+        reminders.deliverDue(Instant.now());
+        assertThat(notifications.count()).isEqualTo(before);
+        assertThat(rows).allSatisfy(row -> assertThat(row.getRemindedAt()).isNotNull());
+    }
+
+    @Test
+    void ancientOpenEndedRepeatDoesNotReplayHistoryInBackground() {
+        var zone = ZoneId.of("Asia/Seoul");
+        var today = LocalDate.now(zone);
+        var start = LocalDate.of(1, 1, 1);
+        var rule = recurring.create(owner, patientId, UUID.randomUUID(), "오래된 복약", null,
+                start.atTime(9, 0).atZone(zone).toInstant(), zone.getId(), null);
+        assertThat(schedules.count()).isEqualTo(64);
+        assertThat(rule.getNextDate()).isEqualTo(today.plusDays(32));
+        for (int i = 0; i < 20; i++) recurring.replenish(rule.getId(), Instant.now());
+        assertThat(schedules.count()).isEqualTo(64);
+        assertThat(series.dueIds(today.plusDays(31))).doesNotContain(rule.getId());
+        // Historic months remain available on demand, without duplicate rows.
+        var from = LocalDate.of(2020, 1, 1).atStartOfDay(zone).toInstant();
+        var to = LocalDate.of(2020, 2, 1).atStartOfDay(zone).toInstant();
+        recurring.ensureRange(patientId, from, to);
+        recurring.ensureRange(patientId, from, to);
+        assertThat(schedules.count()).isEqualTo(95);
+        assertThat(rule.getNextDate()).isEqualTo(today.plusDays(32));
+    }
+
+    @Test
+    void ancientFinishedRepeatOnlyCreatesItsFiniteHistory() {
+        var zone = ZoneId.of("Asia/Seoul");
+        var start = LocalDate.of(1, 1, 1);
+        var rule = recurring.create(owner, patientId, UUID.randomUUID(), "지난 처방", null,
+                start.atTime(9, 0).atZone(zone).toInstant(), zone.getId(), start.plusDays(1));
+        for (int i = 0; i < 20; i++) recurring.replenish(rule.getId(), Instant.now());
+        assertThat(schedules.count()).isEqualTo(2);
+    }
+
+    @Test
+    void manualDailyRepeatAcceptsYesterdayThroughTodayAndRejectsReversedDates() throws Exception {
+        var zone = ZoneId.of("Asia/Seoul");
+        var today = LocalDate.now(zone);
+        var id = UUID.randomUUID();
+        var start = today.minusDays(1).atTime(9, 0).atZone(zone).toInstant();
+        var body = """
+                {"patientId":"%s","requestId":"%s","title":"복약 기록","startsAt":"%s",
+                 "weekdayMask":127,"endDate":"%s","timeZone":"Asia/Seoul"}
+                """.formatted(patientId, id, start, today);
+        mvc.perform(post("/api/medication-series").header("Authorization", "Bearer " + token)
+                .contentType("application/json").content(body)).andExpect(status().isOk());
+        assertThat(schedules.findAll().stream().filter(row -> id.equals(row.getSeriesId()))
+                .map(row -> row.getOccurrenceDate())).containsExactlyInAnyOrder(today.minusDays(1), today);
+        var count = schedules.count();
+        var invalid = body.replace(id.toString(), UUID.randomUUID().toString())
+                .replace("\"endDate\":\"" + today, "\"endDate\":\"" + today.minusDays(2));
+        mvc.perform(post("/api/medication-series").header("Authorization", "Bearer " + token)
+                .contentType("application/json").content(invalid)).andExpect(status().isBadRequest());
+        assertThat(schedules.count()).isEqualTo(count);
+    }
+
+    @Test
     void prescriptionRepeatRejectsInvalidTimeZoneAndMissingEndDateWithoutWrites() throws Exception {
         ReflectionTestUtils.setField(candidate, "type", ActionItemType.MEDICATION);
         actions.saveAndFlush(candidate);
@@ -129,6 +205,24 @@ class CalendarApiIntegrationTest {
         assertThat(schedules.findByActionItemId(candidate.getId())).isEmpty();
         assertThat(actions.findById(candidate.getId()).orElseThrow().getApprovalStatus())
                 .isEqualTo(ActionItemApprovalStatus.PENDING);
+    }
+
+    @Test
+    void prescriptionRepeatExplainsInvalidDatesAndWeekdaysWithoutWriting() throws Exception {
+        ReflectionTestUtils.setField(candidate, "type", ActionItemType.MEDICATION);
+        actions.saveAndFlush(candidate);
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (var entry : java.util.Map.of("2026-11-14", "SCHEDULE_END_BEFORE_START", "2026-11-15", "SCHEDULE_EMPTY_PERIOD").entrySet()) {
+            var payload = java.util.Map.of("startsAt", "2026-11-15T00:00:00Z", "weekdayMask", 1,
+                    "endDate", entry.getKey(), "timeZone", "Asia/Seoul");
+            mvc.perform(post("/api/action-items/{id}/approve", candidate.getId())
+                    .header("Authorization", "Bearer " + token).contentType("application/json")
+                    .content(mapper.writeValueAsString(payload)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(entry.getValue()));
+        }
+        assertThat(series.findById(candidate.getId())).isEmpty();
+        assertThat(schedules.findByActionItemId(candidate.getId())).isEmpty();
     }
 
     @Test
