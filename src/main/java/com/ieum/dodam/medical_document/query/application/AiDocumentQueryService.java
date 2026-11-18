@@ -2,19 +2,12 @@ package com.ieum.dodam.medical_document.query.application;
 
 import com.ieum.dodam.global.exception.BusinessException;
 import com.ieum.dodam.global.status.AiJobStatus;
-import com.ieum.dodam.global.status.DocumentStatus;
 import com.ieum.dodam.global.status.ResultStatus;
-import com.ieum.dodam.global.type.DocumentType;
-import com.ieum.dodam.medical_document.api.dto.request.AiDocumentListRequestDto;
 import com.ieum.dodam.medical_document.domain.ExplanationSectionType;
 import com.ieum.dodam.medical_document.domain.repository.AiDocumentExplanationRepository;
 import com.ieum.dodam.medical_document.domain.repository.AiDocumentRepository;
 import com.ieum.dodam.medical_document.error.AiDocumentErrorCode;
-import com.ieum.dodam.medical_document.query.model.AiDocumentDetailRow;
-import com.ieum.dodam.medical_document.query.model.AiDocumentDetailView;
 import com.ieum.dodam.medical_document.query.model.AiDocumentExplanationStatusView;
-import com.ieum.dodam.medical_document.query.model.AiDocumentListRow;
-import com.ieum.dodam.medical_document.query.model.AiDocumentListView;
 import com.ieum.dodam.medical_document.query.model.AiDocumentSectionItemView;
 import com.ieum.dodam.medical_document.query.model.AiDocumentSectionRow;
 import com.ieum.dodam.medical_document.query.model.AiDocumentSectionView;
@@ -23,9 +16,6 @@ import com.ieum.dodam.medical_document.query.model.AiDocumentStatusRow;
 import com.ieum.dodam.user.domain.User;
 import com.ieum.dodam.user.query.application.UserQueryService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,9 +34,6 @@ import java.time.format.DateTimeParseException;
 @RequiredArgsConstructor
 public class AiDocumentQueryService {
 
-    private static final int DEFAULT_PAGE_SIZE = 20;
-    private static final int MAX_PAGE_SIZE = 100;
-
     private final AiDocumentRepository documents;
     private final AiDocumentExplanationRepository explanations;
     private final CareRelationPermissionService permissions;
@@ -55,48 +42,6 @@ public class AiDocumentQueryService {
     /** 내부 사용자 식별자로 인증된 사용자를 조회한다. */
     public User requireUser(UUID userId) {
         return userQueries.requireById(userId);
-    }
-
-    /** 사용자의 권한 범위에 포함된 AI 문서 목록을 조회한다. */
-    public Page<AiDocumentListView> listDocuments(User actor, AiDocumentListRequestDto request) {
-        UUID requestedPatientId = parseOptionalUuid(request.patientId());
-        UUID targetPatientId = permissions.resolveTargetPatient(actor, requestedPatientId);
-        UUID visitId = parseOptionalUuid(request.visitId());
-        String documentType = parseDocumentType(request.docType());
-        String documentStatus = parseDocumentStatus(request.status());
-        Pageable pageable = pageable(request.page(), request.size());
-
-        return documents.findCompletedDocuments(
-                targetPatientId,
-                visitId,
-                documentType,
-                documentStatus,
-                pageable
-        ).map(this::toListView);
-    }
-
-    /** 문서의 AI 설명 상세 정보를 권한 검증 후 조회한다. */
-    public AiDocumentDetailView getDocument(User actor, UUID documentId) {
-        requireDocumentPermission(actor, documentId);
-        AiDocumentDetailRow row = explanations.findDetailByDocumentId(documentId)
-                .orElseThrow(() -> new BusinessException(AiDocumentErrorCode.DOCUMENT_NOT_FOUND));
-        requireAnalysisCompleted(row.getAnalysisStatus());
-        requireExplanationSucceeded(row.getJobStatus());
-
-        return new AiDocumentDetailView(
-                parseUuid(row.getDocumentId()),
-                row.getDocumentName(),
-                enumValue(DocumentType.class, row.getDocumentType(), AiDocumentErrorCode.INVALID_FILTER),
-                parseUuid(row.getVisitId()),
-                enumValue(DocumentStatus.class, row.getDocumentStatus(), AiDocumentErrorCode.INVALID_FILTER),
-                enumValue(AiJobStatus.class, row.getJobStatus(), AiDocumentErrorCode.INVALID_FILTER),
-                nullableEnum(ResultStatus.class, row.getResultStatus()),
-                row.getTitle(),
-                row.getContent(),
-                parseDbInstant(row.getCreatedAt()),
-                defaultLong(row.getSectionCount()),
-                defaultLong(row.getCitationCount())
-        );
     }
 
     /** 문서의 AI 설명 섹션과 섹션별 항목을 조회한다. */
@@ -131,10 +76,6 @@ public class AiDocumentQueryService {
                 AiDocumentErrorCode.INVALID_FILTER
         );
         ResultStatus resultStatus = nullableEnum(ResultStatus.class, row.getResultStatus());
-        String detailUrl = jobStatus == AiJobStatus.SUCCEEDED
-                ? "/api/ai-documents/" + documentId
-                : null;
-
         return new AiDocumentExplanationStatusView(
                 parseUuid(row.getDocumentId()),
                 jobStatus,
@@ -142,27 +83,10 @@ public class AiDocumentQueryService {
                 row.getCurrentStep(),
                 row.getProgress(),
                 parseDbInstant(row.getCompletedAt()),
-                detailUrl,
                 row.getFailedStep(),
                 row.getErrorCode(),
                 Boolean.TRUE.equals(row.getRetryable()),
                 "/api/documents/" + documentId
-        );
-    }
-
-    /** 조회 결과 한 건을 목록 조회 모델로 변환한다. */
-    private AiDocumentListView toListView(AiDocumentListRow row) {
-        return new AiDocumentListView(
-                parseUuid(row.getDocumentId()),
-                row.getDocumentName(),
-                enumValue(DocumentType.class, row.getDocumentType(), AiDocumentErrorCode.INVALID_FILTER),
-                parseUuid(row.getVisitId()),
-                row.getVisitedOn(),
-                parseDbInstant(row.getCreatedAt()),
-                row.getAuthorName(),
-                enumValue(DocumentStatus.class, row.getDocumentStatus(), AiDocumentErrorCode.INVALID_FILTER),
-                enumValue(AiJobStatus.class, row.getJobStatus(), AiDocumentErrorCode.INVALID_FILTER),
-                nullableEnum(ResultStatus.class, row.getResultStatus())
         );
     }
 
@@ -207,58 +131,11 @@ public class AiDocumentQueryService {
                 .orElseThrow(() -> new BusinessException(AiDocumentErrorCode.DOCUMENT_NOT_FOUND));
     }
 
-    /** 원본 문서 분석이 완료된 상태인지 검증한다. */
-    private static void requireAnalysisCompleted(String rawStatus) {
-        if (!"SUCCEEDED".equals(rawStatus)) {
-            throw new BusinessException(AiDocumentErrorCode.ANALYSIS_NOT_COMPLETED);
-        }
-    }
-
     /** AI 설명 작업이 성공적으로 완료된 상태인지 검증한다. */
     private static void requireExplanationSucceeded(String rawStatus) {
         if (!"SUCCEEDED".equals(rawStatus)) {
             throw new BusinessException(AiDocumentErrorCode.EXPLANATION_NOT_READY);
         }
-    }
-
-    /** 페이지 번호와 크기를 검증하고 페이지 요청 객체를 생성한다. */
-    private static Pageable pageable(int page, int size) {
-        int actualSize = size == 0 ? DEFAULT_PAGE_SIZE : size;
-        if (page < 0 || actualSize < 1 || actualSize > MAX_PAGE_SIZE) {
-            throw new BusinessException(AiDocumentErrorCode.INVALID_PAGE_REQUEST);
-        }
-        return PageRequest.of(page, actualSize);
-    }
-
-    /** 선택적으로 전달된 문자열 UUID를 변환한다. */
-    private static UUID parseOptionalUuid(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        try {
-            return UUID.fromString(value);
-        } catch (IllegalArgumentException exception) {
-            throw new BusinessException(AiDocumentErrorCode.INVALID_FILTER);
-        }
-    }
-
-    /** 문서 유형 필터를 검증하고 DB 조회용 값으로 변환한다. */
-    private static String parseDocumentType(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return enumValue(DocumentType.class, value, AiDocumentErrorCode.INVALID_FILTER).name();
-    }
-
-    /** 문서 상태 필터를 검증하고 계약 상태를 DB 상태로 변환한다. */
-    private static String parseDocumentStatus(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        if ("COMPLETED".equalsIgnoreCase(value)) {
-            return DocumentStatus.READY.name();
-        }
-        return enumValue(DocumentStatus.class, value, AiDocumentErrorCode.INVALID_FILTER).name();
     }
 
     /** 섹션 유형 필터를 검증하고 DB 조회용 값으로 변환한다. */
@@ -291,11 +168,6 @@ public class AiDocumentQueryService {
             return null;
         }
         return Enum.valueOf(type, rawValue.toUpperCase());
-    }
-
-    /** null인 집계 결과를 0으로 치환한다. */
-    private static long defaultLong(Long value) {
-        return value == null ? 0L : value;
     }
 
     /** PostgreSQL·H2 native 조회 시간 문자열을 공통 Instant로 변환한다. */

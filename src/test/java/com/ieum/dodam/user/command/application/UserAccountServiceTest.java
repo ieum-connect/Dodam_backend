@@ -54,6 +54,18 @@ class UserAccountServiceTest {
     }
 
     @Test
+    void replacesFallbackWhenKakaoLaterProvidesNickname() {
+        UserAccountService accounts = new UserAccountService(users, patients);
+        User first = accounts.loginOrRegister("kakao-fallback", null);
+        assertThat(first.getName()).isEqualTo("이용자");
+
+        User again = accounts.loginOrRegister("kakao-fallback", "새 닉네임");
+        assertThat(again.getId()).isEqualTo(first.getId());
+        assertThat(again.getName()).isEqualTo("새 닉네임");
+        assertThat(accounts.loginOrRegister("kakao-fallback", null).getName()).isEqualTo("새 닉네임");
+    }
+
+    @Test
     void chooseRoleOnceAsPatient() {
         UserAccountService accounts = new UserAccountService(users, patients);
         accounts.loginOrRegister("kakao-soonja", "김순자");

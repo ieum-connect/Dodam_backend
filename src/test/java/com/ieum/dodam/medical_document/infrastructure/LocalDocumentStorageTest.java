@@ -67,6 +67,16 @@ class LocalDocumentStorageTest {
         assertThat(url).startsWith("http://localhost:8081/local-documents/" + KEY + "?expiresAt=");
     }
 
+    @Test
+    void readsStoredOriginal() {
+        storeSample();
+        assertThat(storage.readOriginal(KEY)).containsExactly(CONTENT);
+    }
+    @Test
+    void rejectsReadOutsideRootAndMissingFile() {
+        assertThatThrownBy(() -> storage.readOriginal("../escape.pdf")).isInstanceOf(DocumentStorageException.class);
+        assertThatThrownBy(() -> storage.readOriginal("missing.pdf")).isInstanceOf(DocumentStorageException.class);
+    }
     private void storeSample() {
         storage.storeOriginal(KEY, CONTENT, "application/pdf");
     }

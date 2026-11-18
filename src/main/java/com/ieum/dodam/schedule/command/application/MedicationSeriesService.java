@@ -17,27 +17,48 @@ public class MedicationSeriesService {
         this.series=series; this.schedules=schedules; this.access=access;
     }
     public MedicationSeries create(User actor, UUID patientId, UUID requestId, String title, String notes, Instant startsAt, String timeZone, LocalDate endDate) {
+        return create(actor, patientId, requestId, title, notes, startsAt, timeZone, endDate, 127);
+    }
+    public MedicationSeries create(User actor, UUID patientId, UUID requestId, String title, String notes, Instant startsAt, String timeZone, LocalDate endDate, int weekdays) {
         access.requirePatient(actor,patientId);
+        requireWeekdays(weekdays);
         ZoneId zone;
-        try { zone=ZoneId.of(timeZone); } catch(Exception e) { throw invalid(); }
-        if(requestId==null || startsAt==null || title==null || title.isBlank() || title.length()>200 || (notes!=null && notes.length()>500)) throw invalid();
+        try { zone=ZoneId.of(timeZone); } catch(Exception e) { throw new BusinessException(ScheduleErrorCode.TIME_ZONE); }
+        if (startsAt == null) throw new BusinessException(ScheduleErrorCode.START_REQUIRED);
+        if (notes != null && notes.length() > 500) throw new BusinessException(ScheduleErrorCode.NOTES_TOO_LONG);
+        if(requestId==null || title==null || title.isBlank() || title.length()>200) throw invalid();
         LocalDate start=startsAt.atZone(zone).toLocalDate();
-        // A recurring rule starts today or later. Historic one-off records use the existing schedule API.
-        if(start.isBefore(LocalDate.now(zone)) || start.getYear()>9998 || (endDate!=null && (endDate.isBefore(start) || endDate.getYear()>9998))) throw invalid();
+        // Past prescription periods can be recorded; occurrences remain uncompleted.
+        if(start.getYear()<1 || start.getYear()>9998 || (endDate!=null && (endDate.getYear()<1 || endDate.getYear()>9998))) throw new BusinessException(ScheduleErrorCode.DATE_RANGE);
+        if(endDate!=null && endDate.isBefore(start)) throw new BusinessException(ScheduleErrorCode.END_BEFORE_START);
+        if (endDate != null) {
+            boolean included = false;
+            for (int offset = 0; offset < 7 && !start.plusDays(offset).isAfter(endDate); offset++)
+                if ((weekdays & (1 << (start.plusDays(offset).getDayOfWeek().getValue() - 1))) != 0) included = true;
+            if (!included) throw new BusinessException(ScheduleErrorCode.EMPTY_PERIOD);
+        }
         schedules.lockPatient(patientId).orElseThrow(MedicationSeriesService::invalid);
         var desired=MedicationSeries.create(requestId,patientId,title,notes,startsAt,zone,endDate);
+        desired.changeRule(weekdays, endDate, desired.getTimeOfDay(), start);
         var existing=series.findById(requestId);
         if(existing.isPresent()) {
             var s=existing.get();
             if(!s.getPatientId().equals(patientId) || !s.getTitle().equals(desired.getTitle()) || !Objects.equals(s.getNotes(),notes)
-                || !s.getStartDate().equals(start) || !s.getTimeOfDay().equals(desired.getTimeOfDay()) || !s.getTimeZone().equals(zone.getId()) || !Objects.equals(s.getEndDate(),endDate))
+                || !s.getStartDate().equals(start) || !s.getTimeOfDay().equals(desired.getTimeOfDay()) || !s.getTimeZone().equals(zone.getId()) || !Objects.equals(s.getEndDate(),endDate)
+                || s.getWeekdayMask() != weekdays)
                 throw new BusinessException(GlobalErrorCode.CONFLICT);
             return s;
         }
         // Assigned UUIDs may be merged; advance the managed instance returned by save.
         desired=series.saveAndFlush(desired);
         materialize(desired,start,start.plusDays(31));
-        desired.advance(start.plusDays(32));
+        // Keep the initial history, but do not make the background job replay every
+        // day since an arbitrarily old start. Other history is filled by bounded
+        // calendar queries through ensureRange.
+        LocalDate today=LocalDate.now(zone);
+        LocalDate currentStart=start.isBefore(today)?today:start;
+        if(currentStart.isAfter(start)) materialize(desired,currentStart,currentStart.plusDays(31));
+        desired.advance(currentStart.plusDays(32));
         return desired;
     }
     @Transactional(readOnly=true)
@@ -70,6 +91,32 @@ public class MedicationSeriesService {
         }
         return s;
     }
+    public MedicationSeries update(User actor, UUID id, long version, int weekdays, LocalTime time, LocalDate endDate) {
+        requireWeekdays(weekdays);
+        var rule = series.lockById(id).orElseThrow(MedicationSeriesService::invalid);
+        access.requirePatient(actor, rule.getPatientId());
+        if (!rule.isActive() || rule.getVersion() != version) throw new BusinessException(GlobalErrorCode.CONFLICT);
+        var now = Instant.now();
+        var zone = ZoneId.of(rule.getTimeZone());
+        var today = now.atZone(zone).toLocalDate();
+        if (time == null) throw invalid();
+        var firstPossibleDate = today.atTime(time).atZone(zone).toInstant().isBefore(now) ? today.plusDays(1) : today;
+        var effectiveFrom = firstPossibleDate.isBefore(rule.getStartDate()) ? rule.getStartDate() : firstPossibleDate;
+        if (endDate != null && (endDate.isBefore(effectiveFrom) || endDate.getYear() > 9998)) throw invalid();
+        var futureRows = schedules.lockFutureSeries(id, now);
+        rule.changeRule(weekdays, endDate, time, effectiveFrom);
+        for (var row : futureRows) {
+            var day = row.getOccurrenceDate();
+            if (!"SCHEDULED".equals(row.getStatus()) || row.getRemindedAt() != null) continue;
+            var startsAt = day.atTime(time).atZone(zone).toInstant();
+            if (!rule.includes(day) || startsAt.isBefore(now)) row.removeFromSeries();
+            else row.update(rule.getTitle(), ScheduleType.MEDICATION, startsAt, rule.getNotes());
+        }
+        schedules.flush();
+        materialize(rule, effectiveFrom, effectiveFrom.plusDays(31));
+        rule.advance(effectiveFrom.plusDays(32));
+        return series.saveAndFlush(rule);
+    }
     private void materialize(MedicationSeries s,LocalDate from,LocalDate through) {
         if(!s.isActive()) return;
         LocalDate start=from.isBefore(s.getStartDate())?s.getStartDate():from;
@@ -77,12 +124,15 @@ public class MedicationSeriesService {
         if(end.isBefore(start)) return;
         Set<LocalDate> existing=new HashSet<>(schedules.occurrenceDates(s.getId(),start,end));
         for(LocalDate day=start;!day.isAfter(end);day=day.plusDays(1)) {
-            if(existing.contains(day)) continue;
+            if(existing.contains(day) || !s.includes(day)) continue;
             var instant=day.atTime(s.getTimeOfDay()).atZone(ZoneId.of(s.getTimeZone())).toInstant();
             var row=Schedule.create(s.getPatientId(),null,ScheduleType.MEDICATION,s.getTitle(),instant);
             row.update(s.getTitle(),ScheduleType.MEDICATION,instant,s.getNotes()); row.assignSeries(s.getId(),day); schedules.save(row);
         }
         schedules.flush();
+    }
+    private static void requireWeekdays(int weekdays) {
+        if (weekdays < 1 || weekdays > 127) throw new BusinessException(ScheduleErrorCode.WEEKDAY_REQUIRED);
     }
     private static BusinessException invalid() { return new BusinessException(GlobalErrorCode.INVALID_REQUEST); }
 }

@@ -22,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 
 @RestController
@@ -29,6 +30,7 @@ import java.util.*;
 public class ChildApiController {
     private static final String ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private final PatientRepository patients;
     private final CareRelationRepository relations;
     private final UserRepository users;
@@ -51,7 +53,7 @@ public class ChildApiController {
                 .map(link -> patients.findById(link.getPatientId()).orElse(null))
                 .filter(Objects::nonNull)
                 .filter(child -> child.getChildName() != null)
-                .map(this::response).toList();
+                .map(child -> response(child, parent)).toList();
     }
 
     @PostMapping
@@ -73,7 +75,7 @@ public class ChildApiController {
         link.setStatus(CareRelationStatus.ACTIVE);
         link.setAcceptedAt(Instant.now());
         relations.save(link);
-        return response(child);
+        return response(child, parent);
     }
 
     @PutMapping("/{id}")
@@ -81,6 +83,8 @@ public class ChildApiController {
     public ChildResponse update(@AuthenticationPrincipal OAuth2User principal, @PathVariable UUID id,
                                 @RequestBody ChildRequest request) {
         User parent = parent(principal);
+        UUID ownerId = childOwner(id);
+        users.findAllByIdForUpdate(ownerId.equals(parent.getId()) ? List.of(ownerId) : List.of(ownerId, parent.getId()));
         if (!relations.existsByPatientIdAndCaregiverIdAndStatus(id, parent.getId(), CareRelationStatus.ACTIVE)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "연결된 아이만 수정할 수 있습니다.");
         }
@@ -91,10 +95,10 @@ public class ChildApiController {
         child.setBirthDate(request.birthDate());
         // Older clients omit gender: preserve the value they did not edit.
         if (request.gender() != null) child.setGender(request.gender());
-        return response(child);
+        return response(child, parent);
     }
 
-    public record ParentResponse(UUID userId, String name, boolean me) {}
+    public record ParentResponse(UUID userId, String name, boolean me, boolean canDisconnect) {}
 
     /** 아이에 연결된 보호자(부모·조부모 등) 목록을 반환한다. */
     @GetMapping("/{id}/parents")
@@ -104,11 +108,37 @@ public class ChildApiController {
         if (!relations.existsByPatientIdAndCaregiverIdAndStatus(id, me.getId(), CareRelationStatus.ACTIVE)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "연결된 아이만 조회할 수 있습니다.");
         }
+        UUID ownerId = childOwner(id);
         return relations.findByPatientIdAndStatus(id, CareRelationStatus.ACTIVE).stream()
                 .map(link -> users.findById(link.getCaregiverId()).orElse(null))
                 .filter(Objects::nonNull)
-                .map(user -> new ParentResponse(user.getId(), user.getName(), user.getId().equals(me.getId())))
+                .map(user -> new ParentResponse(user.getId(), user.getName(), user.getId().equals(me.getId()),
+                        !ownerId.equals(user.getId()) && (ownerId.equals(me.getId()) || user.getId().equals(me.getId()))))
                 .toList();
+    }
+
+    @DeleteMapping("/{id}/parents/{parentId}")
+    @Transactional
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void disconnectParent(@AuthenticationPrincipal OAuth2User principal, @PathVariable UUID id,
+                                 @PathVariable UUID parentId) {
+        User owner = parent(principal);
+        UUID ownerId = childOwner(id);
+        if (ownerId.equals(parentId) || (!ownerId.equals(owner.getId()) && !owner.getId().equals(parentId))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인의 연결을 해제하거나 아이를 등록한 보호자가 다른 보호자의 연결을 해제할 수 있습니다.");
+        }
+        var locked = users.findAllByIdForUpdate(List.of(ownerId, parentId));
+        if (locked.stream().noneMatch(user -> user.getId().equals(owner.getId()) && user.getStatus() == UserStatus.ACTIVE)) {
+            throw new BusinessException(UserErrorCode.USER_ALREADY_WITHDRAWN);
+        }
+        if (!relations.existsByPatientIdAndCaregiverIdAndStatus(id, owner.getId(), CareRelationStatus.ACTIVE)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "연결된 아이만 관리할 수 있습니다.");
+        }
+        var link = relations.findFirstByPatientIdAndCaregiverIdAndStatus(id, parentId, CareRelationStatus.ACTIVE);
+        if (link.isPresent()) {
+            link.get().revoke(Instant.now());
+            patients.findById(id).orElseThrow().setInviteCode(newCode());
+        }
     }
 
     @PostMapping("/join")
@@ -118,13 +148,18 @@ public class ChildApiController {
         if (request == null || request.inviteCode() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "초대 코드를 입력해 주세요.");
         }
-        Patient child = patients.findByInviteCode(CareRelationCode.normalize(request.inviteCode()))
+        String code = CareRelationCode.normalize(request.inviteCode());
+        UUID ownerId = patients.findChildOwnerByInviteCode(code)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "유효한 가족 공유 코드를 확인해 주세요."));
+        var locked = users.findAllByIdForUpdate(ownerId.equals(parent.getId()) ? List.of(ownerId) : List.of(ownerId, parent.getId()));
+        if (locked.stream().noneMatch(user -> user.getId().equals(parent.getId()) && user.getStatus() == UserStatus.ACTIVE)) {
+            throw new BusinessException(UserErrorCode.USER_ALREADY_WITHDRAWN);
+        }
+        Patient child = patients.findByInviteCode(code)
                 .filter(p -> p.getChildName() != null)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "아이를 찾을 수 없습니다."));
-        // The creator's user row serializes joins and withdrawal against the same child.
-        users.findAllByIdForUpdate(List.of(child.getUserId()));
         if (relations.existsByPatientIdAndCaregiverIdAndStatus(child.getId(), parent.getId(), CareRelationStatus.ACTIVE)) {
-            return response(child);
+            return response(child, parent);
         }
         long activeParents = relations.countByPatientIdAndStatus(child.getId(), CareRelationStatus.ACTIVE);
         if (activeParents == 0) {
@@ -141,7 +176,12 @@ public class ChildApiController {
         link.setStatus(CareRelationStatus.ACTIVE);
         link.setAcceptedAt(Instant.now());
         relations.save(link);
-        return response(child);
+        return response(child, parent);
+    }
+
+    private UUID childOwner(UUID id) {
+        return patients.findChildOwnerById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "아이를 찾을 수 없습니다."));
     }
 
     private User parent(OAuth2User principal) {
@@ -152,19 +192,20 @@ public class ChildApiController {
     }
 
     private void validate(ChildRequest request) {
+        LocalDate today = LocalDate.now(SEOUL);
         if (request != null && request.gender() != null
                 && !Set.of("MALE", "FEMALE").contains(request.gender())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "성별을 확인해 주세요.");
         }
         if (request == null || request.name() == null || request.name().isBlank()
                 || request.name().trim().length() > 100 || request.birthDate() == null
-                || request.birthDate().isAfter(LocalDate.now())
-                || request.birthDate().isBefore(LocalDate.now().minusYears(19))) {
+                || request.birthDate().isAfter(today)
+                || request.birthDate().isBefore(today.minusYears(19))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "아이 이름과 19세 미만의 생년월일을 확인해 주세요.");
         }
     }
 
-    private ChildResponse response(Patient child) {
+    private ChildResponse response(Patient child, User viewer) {
         String displayName = child.getChildName();
         if (displayName == null || displayName.isBlank() || "이름 확인 필요".equals(displayName.trim())) {
             displayName = users.findById(child.getUserId())
@@ -173,7 +214,7 @@ public class ChildApiController {
                     .orElse(displayName);
         }
         return new ChildResponse(child.getId(), displayName, child.getBirthDate(),
-                CareRelationCode.display(child.getInviteCode()),
+                child.getUserId().equals(viewer.getId()) ? CareRelationCode.display(child.getInviteCode()) : null,
                 (int) relations.countByPatientIdAndStatus(child.getId(), CareRelationStatus.ACTIVE), child.getGender());
     }
 

@@ -8,11 +8,13 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/welfare-regions")
 public class WelfareRegionApiController {
+    private static final RegionOption SEJONG = new RegionOption("3611000000", "세종특별자치시");
     private final RestClient client;
 
     public WelfareRegionApiController(RestClient.Builder builder) {
@@ -34,9 +36,20 @@ public class WelfareRegionApiController {
         List<RegionOption> items = new ArrayList<>();
         if (body != null && body.path("regcodes").isArray()) {
             body.path("regcodes").forEach(item -> items.add(new RegionOption(
-                    item.path("code").asText(), item.path("name").asText())));
+                    item.path("code").asText(), currentName(item.path("name").asText()))));
         }
+        // 세종은 법정동 코드에 별도의 시·도 대표 코드(3600000000)가 없어 일반 패턴에 잡히지 않는다.
+        if (level == Level.PROVINCE && items.stream().noneMatch(item -> item.code().startsWith("36"))) {
+            items.add(SEJONG);
+        }
+        items.sort(Comparator.comparing(RegionOption::code));
         return new RegionResponse(level, items);
+    }
+
+    private static String currentName(String name) {
+        if (name.startsWith("강원도")) return "강원특별자치도" + name.substring("강원도".length());
+        if (name.startsWith("전라북도")) return "전북특별자치도" + name.substring("전라북도".length());
+        return name;
     }
 
     private String prefix(String code, int length) {

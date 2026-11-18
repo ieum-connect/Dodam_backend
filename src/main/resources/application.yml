@@ -67,13 +67,23 @@ logging:
     org.springframework.security.oauth2: INFO
 
 dodam:
+  push:
+    enabled: ${PUSH_ENABLED:false}
+    credentials: ${FIREBASE_CREDENTIALS:}
+    web-api-key: ${FIREBASE_WEB_API_KEY:}
+    project-id: ${FIREBASE_PROJECT_ID:}
+    sender-id: ${FIREBASE_SENDER_ID:}
+    app-id: ${FIREBASE_APP_ID:}
+    vapid-key: ${FIREBASE_VAPID_KEY:}
   demo-login: ${DEMO_LOGIN:false}
+  demo-showcase-only: ${DEMO_SHOWCASE_ONLY:false}
   frontend-origin: ${FRONTEND_ORIGIN:http://localhost:4173}
   welfare:
     gov24:
       base-url: ${GOV24_WELFARE_BASE_URL:https://api.odcloud.kr/api}
       service-key: ${GOV24_WELFARE_SERVICE_KEY:}
       page-size: ${GOV24_WELFARE_PAGE_SIZE:100}
+      detail-batch-size: ${GOV24_WELFARE_DETAIL_BATCH_SIZE:50}
       connect-timeout: ${GOV24_WELFARE_CONNECT_TIMEOUT:2s}
       read-timeout: ${GOV24_WELFARE_READ_TIMEOUT:10s}
       sync-enabled: ${GOV24_WELFARE_SYNC_ENABLED:false}
@@ -84,7 +94,11 @@ dodam:
       max-image-pixels: 40000000
       max-concurrent: 4
   storage:
+    provider: ${DODAM_STORAGE_PROVIDER:local}
     local-root: ${STORAGE_LOCAL_ROOT:./data/object-storage}
+    s3:
+      bucket: ${DODAM_STORAGE_S3_BUCKET:}
+      region: ${DODAM_STORAGE_S3_REGION:}
   ai:
     base-url: ${AI_BASE_URL:}
     internal-token: ${AI_INTERNAL_TOKEN:}

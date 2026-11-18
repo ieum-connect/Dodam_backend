@@ -6,11 +6,13 @@ import com.ieum.dodam.care_relation.domain.repository.CareRelationRepository;
 import com.ieum.dodam.global.exception.BusinessException;
 import com.ieum.dodam.global.status.AiJobStatus;
 import com.ieum.dodam.global.status.ResultStatus;
+import com.ieum.dodam.medical_document.command.application.DocumentUploadSaveCommandService;
 import com.ieum.dodam.medical_document.command.application.MedicalDocumentCommandService;
 import com.ieum.dodam.medical_document.domain.DocumentStoragePort;
 import com.ieum.dodam.medical_document.domain.entity.MedicalDocument;
 import com.ieum.dodam.medical_document.domain.MedicalDocumentAccessPolicy;
 import com.ieum.dodam.medical_document.domain.MedicalDocumentDeletedEvent;
+import com.ieum.dodam.medical_document.domain.repository.DocumentAnalysisRepository;
 import com.ieum.dodam.medical_document.domain.repository.MedicalDocumentRepository;
 import com.ieum.dodam.medical_document.error.MedicalDocumentErrorCode;
 import com.ieum.dodam.medical_document.query.application.MedicalDocumentQueryService;
@@ -64,6 +66,8 @@ class MedicalDocumentServiceTest {
     private UserAccountService accounts;
     private MedicalDocumentQueryService queries;
     private MedicalDocumentCommandService commands;
+    @Autowired
+    private DocumentAnalysisRepository analyses;
     private List<Object> publishedEvents;
 
     private User patient;
@@ -99,7 +103,9 @@ class MedicalDocumentServiceTest {
                     }
                 });
         publishedEvents = new ArrayList<>();
-        commands = new MedicalDocumentCommandService(documents, accessPolicy, publishedEvents::add);
+        commands = new MedicalDocumentCommandService(documents, accessPolicy, publishedEvents::add,
+                new DocumentUploadSaveCommandService(
+                        documents, analyses, publishedEvents::add, "v1"));
 
         patient = createPatient("kakao-soonja", "김순자");
         caregiver = createCaregiver("kakao-minji", "김민지");
@@ -181,7 +187,7 @@ class MedicalDocumentServiceTest {
         MedicalDocumentView detail = queries.get(patient, document.getId());
         MedicalDocumentView listItem = queries.list(patient, null, null, null, null).items().get(0);
 
-        assertThat(detail.signedUrl()).isEqualTo("https://storage.test/" + document.getStorageKey());
+        assertThat(detail.signedUrl()).isEqualTo("/api/documents/" + document.getId() + "/original");
         assertThat(listItem.signedUrl()).isNull();
     }
 
@@ -282,6 +288,27 @@ class MedicalDocumentServiceTest {
 
     private UUID patientIdOf(User user) {
         return patients.findByUserId(user.getId()).orElseThrow().getId();
+    }
+
+    @Test
+    void correctionQueuesOnceAndOnlyTheOwnerCanRequestIt() {
+        MedicalDocument document = saveDocumentWithVisit();
+        execute("UPDATE documents SET status = 'READY', declared_doc_type = 'MEDICAL' WHERE id = :id",
+                "id", document.getId());
+        em.clear();
+
+        assertThat(queries.get(patient, document.getId()).canReanalyze()).isTrue();
+        assertThat(queries.get(caregiver, document.getId()).canReanalyze()).isFalse();
+        assertErrorCode(() -> commands.reanalyzeAsPrescription(caregiver, document.getId()),
+                MedicalDocumentErrorCode.DOCUMENT_NOT_FOUND);
+        commands.reanalyzeAsPrescription(patient, document.getId());
+        commands.reanalyzeAsPrescription(patient, document.getId());
+        em.flush();
+        em.clear();
+
+        assertThat(queries.get(patient, document.getId()).declaredDocType().name()).isEqualTo("PRESCRIPTION");
+        assertThat(queries.get(patient, document.getId()).documentStatus().name()).isEqualTo("UPLOADED");
+        assertThat(publishedEvents).hasSize(1);
     }
 
     /** 저장 후 flush·clear 해서 이후 조회가 DB 값(마이크로초 단위 createdAt)을 읽게 합니다. */

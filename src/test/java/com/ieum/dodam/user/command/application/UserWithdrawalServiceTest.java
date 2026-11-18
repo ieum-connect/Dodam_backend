@@ -4,6 +4,7 @@ import com.ieum.dodam.care_relation.domain.CareRelation;
 import com.ieum.dodam.care_relation.domain.CareRelationStatus;
 import com.ieum.dodam.care_relation.domain.repository.CareRelationRepository;
 import com.ieum.dodam.global.exception.BusinessException;
+import com.ieum.dodam.global.auth.oauth.KakaoUnlinkClient;
 import com.ieum.dodam.patient.domain.Patient;
 import com.ieum.dodam.patient.domain.repository.PatientRepository;
 import com.ieum.dodam.user.api.dto.response.WithdrawalResponse;
@@ -11,14 +12,22 @@ import com.ieum.dodam.user.domain.User;
 import com.ieum.dodam.user.domain.UserRole;
 import com.ieum.dodam.user.domain.UserStatus;
 import com.ieum.dodam.user.domain.repository.UserRepository;
+import com.ieum.dodam.user.error.UserErrorCode;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.transaction.TestTransaction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @DataJpaTest
+@Import(UserWithdrawalService.class)
 class UserWithdrawalServiceTest {
 
     @Autowired
@@ -30,6 +39,12 @@ class UserWithdrawalServiceTest {
     @Autowired
     private CareRelationRepository relations;
 
+    @Autowired
+    private UserWithdrawalService withdrawals;
+
+    @MockBean
+    private KakaoUnlinkClient kakao;
+
     @Test
     void patientWithdrawalRevokesActiveAndCancelsRequestedRelationsUsingPatientProfileId() {
         User patientUser = saveUser("patient-kakao", UserRole.PATIENT);
@@ -38,8 +53,9 @@ class UserWithdrawalServiceTest {
         CareRelation active = saveRelation(patient.getId(), caregiver, CareRelationStatus.ACTIVE);
         CareRelation requested = saveRelation(patient.getId(), saveUser("other-kakao", UserRole.CAREGIVER), CareRelationStatus.REQUESTED);
 
-        WithdrawalResponse response = service().withdraw(patientUser.getKakaoId(), true);
+        WithdrawalResponse response = withdrawals.withdraw(patientUser.getKakaoId(), true);
 
+        verify(kakao).unlink("patient-kakao");
         assertThat(response.userStatus()).isEqualTo(UserStatus.WITHDRAWN);
         assertThat(response.revokedRelationCount()).isEqualTo(1);
         assertThat(patientUser.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
@@ -60,7 +76,7 @@ class UserWithdrawalServiceTest {
         CareRelation requested = saveRelation(otherPatient.getId(), caregiver, CareRelationStatus.REQUESTED);
         CareRelation othersActive = saveRelation(patient.getId(), saveUser("other-caregiver-kakao", UserRole.CAREGIVER), CareRelationStatus.ACTIVE);
 
-        WithdrawalResponse response = service().withdraw(caregiver.getKakaoId(), true);
+        WithdrawalResponse response = withdrawals.withdraw(caregiver.getKakaoId(), true);
 
         assertThat(response.revokedRelationCount()).isEqualTo(1);
         assertThat(caregiver.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
@@ -73,14 +89,36 @@ class UserWithdrawalServiceTest {
     void withdrawalRequiresExplicitConfirmation() {
         User user = saveUser("patient-kakao", UserRole.PATIENT);
 
-        assertThatThrownBy(() -> service().withdraw(user.getKakaoId(), false))
+        assertThatThrownBy(() -> withdrawals.withdraw(user.getKakaoId(), false))
                 .isInstanceOf(BusinessException.class);
 
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        verifyNoInteractions(kakao);
     }
 
-    private UserWithdrawalService service() {
-        return new UserWithdrawalService(users, patients, relations);
+    @Test
+    void providerFailureRollsBackWithdrawal() {
+        User user = saveUser("unlink-failure", UserRole.CAREGIVER);
+        var id = user.getId();
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+        doThrow(new BusinessException(UserErrorCode.KAKAO_UNLINK_FAILED)).when(kakao).unlink("unlink-failure");
+        try {
+            assertThatThrownBy(() -> withdrawals.withdraw("unlink-failure", true))
+                    .isInstanceOf(BusinessException.class);
+            User restored = users.findById(id).orElseThrow();
+            assertThat(restored.getStatus()).isEqualTo(UserStatus.ACTIVE);
+            assertThat(restored.getKakaoId()).isEqualTo("unlink-failure");
+        } finally {
+            users.deleteById(id);
+        }
+    }
+
+    @Test
+    void demoWithdrawalDoesNotCallKakao() {
+        User user = saveUser("demo-caregiver", UserRole.CAREGIVER);
+        assertThat(withdrawals.withdraw(user.getKakaoId(), true).userStatus()).isEqualTo(UserStatus.WITHDRAWN);
+        verifyNoInteractions(kakao);
     }
 
     private User saveUser(String kakaoId, UserRole role) {

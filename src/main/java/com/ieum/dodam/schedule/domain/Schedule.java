@@ -49,8 +49,16 @@ public class Schedule {
     private java.time.LocalDate occurrenceDate;
     public void assignSeries(UUID id, java.time.LocalDate day) { seriesId=id; occurrenceDate=day; }
 
+    public void removeFromSeries() {
+        finish(false);
+        seriesId = null;
+        occurrenceDate = null;
+    }
+
     @Column(name = "batch_id")
     private UUID batchId;
+
+    public void linkActionItem(UUID id) { this.actionItemId = id; }
 
     public void assignBatch(UUID batchId) {
         this.batchId = batchId;

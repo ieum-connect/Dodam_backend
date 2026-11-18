@@ -2,12 +2,10 @@ package com.ieum.dodam.user.api.controller;
 
 import com.ieum.dodam.care_relation.domain.CareRelationCode;
 import com.ieum.dodam.global.auth.application.AuthCookieService;
-import com.ieum.dodam.global.auth.oauth.KakaoLoginSuccessHandler;
 import com.ieum.dodam.global.auth.security.JwtAuthFilter;
 import com.ieum.dodam.global.exception.BusinessException;
 import com.ieum.dodam.global.exception.GlobalErrorCode;
 import com.ieum.dodam.user.api.dto.request.DemoLoginRequest;
-import com.ieum.dodam.user.api.dto.request.RoleRequest;
 import com.ieum.dodam.user.api.dto.response.AuthConfigResponse;
 import com.ieum.dodam.user.api.dto.response.MeResponse;
 import com.ieum.dodam.user.command.application.UserAccountService;
@@ -39,23 +37,23 @@ import java.util.Map;
 public class AuthApiController {
 
     private final UserAccountService accounts;
-    private final KakaoLoginSuccessHandler loginSuccess;
     private final AuthCookieService authCookies;
     private final String kakaoClientId;
     private final boolean demoLogin;
+    private final boolean demoShowcaseOnly;
 
     public AuthApiController(
             UserAccountService accounts,
-            KakaoLoginSuccessHandler loginSuccess,
             AuthCookieService authCookies,
             @Value("${spring.security.oauth2.client.registration.kakao.client-id:unset}") String kakaoClientId,
-            @Value("${dodam.demo-login:false}") boolean demoLogin
+            @Value("${dodam.demo-login:false}") boolean demoLogin,
+            @Value("${dodam.demo-showcase-only:false}") boolean demoShowcaseOnly
     ) {
         this.accounts = accounts;
-        this.loginSuccess = loginSuccess;
         this.authCookies = authCookies;
         this.kakaoClientId = kakaoClientId;
         this.demoLogin = demoLogin;
+        this.demoShowcaseOnly = demoShowcaseOnly;
     }
 
     @GetMapping("/api/auth/config")
@@ -73,28 +71,6 @@ public class AuthApiController {
         return toMe(updated);
     }
 
-    @PostMapping("/api/role")
-    public ResponseEntity<MeResponse> chooseRole(
-            @AuthenticationPrincipal OAuth2User user,
-            @RequestBody RoleRequest request,
-            HttpServletResponse response
-    ) {
-        User updated = accounts.chooseRole(kakaoId(user), request.toUserRole());
-        refreshSession(user, updated);
-        authCookies.write(response, updated);
-        return ResponseEntity.ok(toMe(updated));
-    }
-
-    /** 기능 명세의 역할 선택 경로다. 기존 프론트의 POST 경로도 위 메서드로 유지한다. */
-    @PutMapping("/api/me/role")
-    public ResponseEntity<MeResponse> chooseRoleAtMe(
-            @AuthenticationPrincipal OAuth2User user,
-            @RequestBody RoleRequest request,
-            HttpServletResponse response
-    ) {
-        return chooseRole(user, request, response);
-    }
-
     @PostMapping("/api/demo/login")
     public ResponseEntity<MeResponse> demoLogin(
             @RequestBody DemoLoginRequest request,
@@ -103,6 +79,9 @@ public class AuthApiController {
     ) {
         if (!demoLogin) {
             throw new BusinessException(GlobalErrorCode.DEMO_LOGIN_DISABLED);
+        }
+        if (demoShowcaseOnly && !"MINJI".equals(request.getAccount()) && !"JIHUN".equals(request.getAccount())) {
+            throw new BusinessException(GlobalErrorCode.INVALID_REQUEST);
         }
         User user = request.getAccount() == null
                 ? accounts.ensureDemoUser(request.toUserRole())
@@ -113,11 +92,6 @@ public class AuthApiController {
         new HttpSessionSecurityContextRepository().saveContext(context, httpRequest, response);
         authCookies.write(response, user);
         return ResponseEntity.ok(toMe(user));
-    }
-
-    @GetMapping("/api/auth/needs-role")
-    public Map<String, Boolean> needsRole() {
-        return Map.of("needsRole", loginSuccess.needsRole(SecurityContextHolder.getContext().getAuthentication()));
     }
 
     private MeResponse toMe(User user) {

@@ -27,6 +27,7 @@ public class MedicalDocumentResponseMapper {
                 view.patientId(),
                 view.documentName(),
                 view.documentType(),
+                view.declaredDocType(),
                 view.visitedOn(),
                 new MedicalDocumentDetailResponseDto.Author(view.author().name(), view.author().role()),
                 view.documentStatus(),
@@ -35,6 +36,7 @@ public class MedicalDocumentResponseMapper {
                 view.resultStatus(),
                 toKst(view.statusChangedAt()),
                 view.retryable(),
+                view.canReanalyze(),
                 view.signedUrl(),
                 toKst(view.createdAt())
         );

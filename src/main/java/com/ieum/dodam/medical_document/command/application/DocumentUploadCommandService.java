@@ -2,7 +2,7 @@ package com.ieum.dodam.medical_document.command.application;
 
 import com.ieum.dodam.global.exception.BusinessException;
 import com.ieum.dodam.global.status.AiJobStatus;
-import com.ieum.dodam.global.type.DocumentType;
+import com.ieum.dodam.medical_document.domain.DeclaredDocumentType;
 import com.ieum.dodam.medical_document.domain.DocumentFileType;
 import com.ieum.dodam.medical_document.domain.DocumentFileValidator;
 import com.ieum.dodam.medical_document.domain.DocumentStorageException;
@@ -64,7 +64,7 @@ public class DocumentUploadCommandService {
     /** 문서를 업로드하고 결과를 반환합니다. 같은 Idempotency-Key 재요청이면 저장 없이 기존 결과(created=false)를 반환합니다. */
     public DocumentUploadResult upload(User me, DocumentUploadCommand command) {
         checkIdempotencyKey(command.idempotencyKey());
-        DocumentType declaredDocType = toDeclaredDocType(command.declaredDocType());
+        DeclaredDocumentType declaredDocType = toDeclaredDocType(command.declaredDocType());
         UUID patientId = requireUploadablePatientId(me, command.visitId());
         String contentSha256 = sha256Hex(command.content());
         Optional<DocumentUploadResult> replay = findReplay(me, command, contentSha256);
@@ -83,12 +83,12 @@ public class DocumentUploadCommandService {
         }
     }
 
-    private static DocumentType toDeclaredDocType(String rawValue) {
+    private static DeclaredDocumentType toDeclaredDocType(String rawValue) {
         if (rawValue == null || rawValue.isBlank()) {
             return null;
         }
         try {
-            return DocumentType.valueOf(rawValue);
+            return DeclaredDocumentType.valueOf(rawValue);
         } catch (IllegalArgumentException e) {
             throw new BusinessException(MedicalDocumentErrorCode.INVALID_DOC_TYPE);
         }
@@ -148,7 +148,7 @@ public class DocumentUploadCommandService {
             User me,
             UUID patientId,
             DocumentUploadCommand command,
-            DocumentType declaredDocType,
+            DeclaredDocumentType declaredDocType,
             DocumentFileType fileType,
             String contentSha256
     ) {

@@ -37,6 +37,16 @@ class WelfareRecommendationServiceTest {
             patients, profiles, programs, new WelfareEligibilityEvaluator(), Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
+    void usesSeoulDateForChildrenBornJustAfterMidnight() {
+        given(null);
+        patients.findById(CHILD_ID).orElseThrow().setBirthDate(LocalDate.of(2026, 11, 6));
+        var midnightService = new WelfareRecommendationService(patients, profiles, programs,
+                new WelfareEligibilityEvaluator(), Clock.fixed(Instant.parse("2026-11-05T15:30:00Z"), ZoneOffset.UTC));
+
+        assertThat(midnightService.recommend(CHILD_ID, false).child().ageMonths()).isZero();
+    }
+
+    @Test
     @DisplayName("거주지역 밖의 사업은 목록에서 빠지고 제외 건수로 집계된다")
     void dropsProgramsOutsideUserRegion() {
         given(profile("서울특별시 강동구 길동").build(),
@@ -64,6 +74,19 @@ class WelfareRecommendationServiceTest {
         assertThat(result.items()).allSatisfy(item -> assertThat(item.score()).isEqualTo(100));
         assertThat(result.items()).extracting(WelfareRecommendationService.RecommendationItem::regionScope)
                 .containsExactly(WelfareRegionScope.DISTRICT, WelfareRegionScope.PROVINCE, WelfareRegionScope.NATIONAL);
+    }
+
+    @Test
+    @DisplayName("시·도가 빠진 고유 구 사업도 같은 구 사용자에게 지역 일치로 추천한다")
+    void recoversUnqualifiedDistrictForMatchingUser() {
+        given(profile("서울특별시 강동구 길동").build(),
+                program("강동구 양육 지원", "강동구시설관리공단", "만 0세~5세 아동"));
+
+        RecommendationResult result = service.recommend(CHILD_ID, false);
+
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().get(0).regionScope()).isEqualTo(WelfareRegionScope.DISTRICT);
+        assertThat(result.items().get(0).regionLabel()).isEqualTo("서울특별시 강동구");
     }
 
     @Test

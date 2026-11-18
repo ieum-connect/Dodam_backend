@@ -3,6 +3,7 @@ package com.ieum.dodam.user.command.application;
 import com.ieum.dodam.care_relation.domain.CareRelation;
 import com.ieum.dodam.care_relation.domain.CareRelationStatus;
 import com.ieum.dodam.care_relation.domain.repository.CareRelationRepository;
+import com.ieum.dodam.global.auth.oauth.KakaoUnlinkClient;
 import com.ieum.dodam.global.exception.BusinessException;
 import com.ieum.dodam.patient.domain.Patient;
 import com.ieum.dodam.patient.domain.repository.PatientRepository;
@@ -28,15 +29,18 @@ public class UserWithdrawalService {
     private final UserRepository users;
     private final PatientRepository patients;
     private final CareRelationRepository relations;
+    private final KakaoUnlinkClient kakao;
 
     public UserWithdrawalService(
             UserRepository users,
             PatientRepository patients,
-            CareRelationRepository relations
+            CareRelationRepository relations,
+            KakaoUnlinkClient kakao
     ) {
         this.users = users;
         this.patients = patients;
         this.relations = relations;
+        this.kakao = kakao;
     }
 
     @Transactional
@@ -55,6 +59,10 @@ public class UserWithdrawalService {
             throw new BusinessException(UserErrorCode.USER_ALREADY_WITHDRAWN);
         }
 
+        User owner = remaining.stream().filter(User::isGroupOwner).findFirst()
+                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+        String ownerKakaoId = owner.getKakaoId();
+        boolean demoAccount = owner.isDemoAccount();
         Instant withdrawnAt = Instant.now();
         int revoked = 0;
         for (User user : remaining) {
@@ -65,6 +73,11 @@ public class UserWithdrawalService {
             revoked += activeRelations.size();
         }
 
+        if (!demoAccount) {
+            // Check local writes first, then roll back if Kakao cannot confirm unlinking.
+            users.flush();
+            kakao.unlink(ownerKakaoId);
+        }
         return new WithdrawalResponse(UserStatus.WITHDRAWN, revoked);
     }
 

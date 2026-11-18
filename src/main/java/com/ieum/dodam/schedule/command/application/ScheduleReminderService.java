@@ -25,18 +25,21 @@ public class ScheduleReminderService {
     private final CareRelationRepository relations;
     private final UserRepository users;
     private final SystemNotificationRepository notifications;
+    private final com.ieum.dodam.notification.push.PushService push;
 
     public ScheduleReminderService(
             ScheduleRepository schedules,
             PatientRepository patients,
             CareRelationRepository relations,
             UserRepository users,
-            SystemNotificationRepository notifications) {
+            SystemNotificationRepository notifications,
+            com.ieum.dodam.notification.push.PushService push) {
         this.schedules = schedules;
         this.patients = patients;
         this.relations = relations;
         this.users = users;
         this.notifications = notifications;
+        this.push = push;
     }
 
     private static String shortText(String value, int max) {
@@ -47,6 +50,11 @@ public class ScheduleReminderService {
     @Transactional
     public void deliverDue(Instant now) {
         for (var schedule : schedules.lockDue(now, PageRequest.of(0, 100))) {
+            // Backfilled doses are history, not a request to take old medication now.
+            if (schedule.getSeriesId() != null && schedule.getStartsAt().isBefore(schedule.getCreatedAt())) {
+                schedule.markReminded(now);
+                continue;
+            }
             var patient = patients.findById(schedule.getPatientId()).orElseThrow();
             var recipients = new HashSet<java.util.UUID>();
             recipients.add(patient.getUserId());
@@ -61,15 +69,16 @@ public class ScheduleReminderService {
                     + shortText(schedule.getTitle(), 120)
                     + (schedule.getScheduleType() == ScheduleType.MEDICATION
                             ? " — 복용 여부를 확인해주세요." : " — 일정을 확인해주세요.");
-            String path =
-                    "/calendar?patientId=" + patient.getId() + "&date=" + schedule.getStartsAt();
+            String page = schedule.getScheduleType() == ScheduleType.MEDICATION ? "/meds" : "/calendar";
+            String path = page + "?patientId=" + patient.getId() + "&date=" + schedule.getStartsAt();
             for (var recipient : recipients) {
                 if (users.findById(recipient)
                         .filter(user -> user.getStatus() == UserStatus.ACTIVE)
                         .isPresent()) {
-                    notifications.save(
+                    var notification = notifications.save(
                             new SystemNotification(
                                     recipient, SystemActivityType.SCHEDULE_DUE, message, path));
+                    push.enqueue(notification, schedule);
                 }
             }
             schedule.markReminded(now);

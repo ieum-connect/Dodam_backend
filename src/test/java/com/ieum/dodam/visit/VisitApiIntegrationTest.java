@@ -130,9 +130,6 @@ class VisitApiIntegrationTest {
                                 .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].visitStatus").value("CANCELED"));
-        mvc.perform(get("/api/visits/" + id).header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.visitStatus").value("CANCELED"));
         mvc.perform(
                         put("/api/visits/" + id)
                                 .header("Authorization", "Bearer " + token)
@@ -167,7 +164,9 @@ class VisitApiIntegrationTest {
     void activeCaregiverManagesButRequestedAndRevokedCannot() throws Exception {
         UUID id = create(today, "DONE");
         var relation = cares.request(caregiver, accounts.patientInviteCode(personal));
-        mvc.perform(get("/api/visits/" + id).header("Authorization", "Bearer " + caregiverToken))
+        mvc.perform(
+                        get("/api/visits?patientId=" + patientId)
+                                .header("Authorization", "Bearer " + caregiverToken))
                 .andExpect(status().isForbidden());
         cares.accept(personal, relation.getId());
         mvc.perform(
@@ -199,7 +198,9 @@ class VisitApiIntegrationTest {
         mvc.perform(get("/api/visits").header("Authorization", "Bearer " + caregiverToken))
                 .andExpect(status().isBadRequest());
         cares.revoke(personal, relation.getId());
-        mvc.perform(get("/api/visits/" + id).header("Authorization", "Bearer " + caregiverToken))
+        mvc.perform(
+                        get("/api/visits?patientId=" + patientId)
+                                .header("Authorization", "Bearer " + caregiverToken))
                 .andExpect(status().isForbidden());
         mvc.perform(
                         put("/api/visits/" + id)
@@ -282,17 +283,21 @@ class VisitApiIntegrationTest {
         em.flush();
         mvc.perform(delete("/api/visits/" + id).header("Authorization", "Bearer " + token))
                 .andExpect(status().isNoContent());
-        mvc.perform(get("/api/visits/" + id).header("Authorization", "Bearer " + token))
+        mvc.perform(
+                        get("/api/visits?includeCanceled=true")
+                                .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.healthRecordIds[0]").value(record.getId().toString()))
-                .andExpect(jsonPath("$.healthRecordIds.length()").value(1))
-                .andExpect(jsonPath("$.documentIds[0]").value(document.getId().toString()));
+                .andExpect(jsonPath("$.items[0].healthRecordIds[0]").value(record.getId().toString()))
+                .andExpect(jsonPath("$.items[0].healthRecordIds.length()").value(1))
+                .andExpect(jsonPath("$.items[0].documentIds[0]").value(document.getId().toString()));
         assertThat(documents.findById(document.getId())).isPresent();
         document.delete(Instant.now());
         em.flush();
-        mvc.perform(get("/api/visits/" + id).header("Authorization", "Bearer " + token))
+        mvc.perform(
+                        get("/api/visits?includeCanceled=true")
+                                .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.documentIds").isEmpty());
+                .andExpect(jsonPath("$.items[0].documentIds").isEmpty());
     }
 
     @Test
@@ -312,7 +317,9 @@ class VisitApiIntegrationTest {
                                                         "visitStatus",
                                                         "DONE"))))
                 .andExpect(status().isBadRequest());
-        mvc.perform(get("/api/visits/" + id).header("Authorization", "Bearer " + caregiverToken))
+        mvc.perform(
+                        get("/api/visits?patientId=" + patientId)
+                                .header("Authorization", "Bearer " + caregiverToken))
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/visits")).andExpect(status().isUnauthorized());
         for (String query :
@@ -322,9 +329,6 @@ class VisitApiIntegrationTest {
             mvc.perform(get("/api/visits?" + query).header("Authorization", "Bearer " + token))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("GLOBAL_002"));
-        mvc.perform(get("/api/visits/not-uuid").header("Authorization", "Bearer " + token))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("GLOBAL_002"));
         mvc.perform(
                         post("/api/visits")
                                 .header("Authorization", "Bearer " + token)
@@ -337,10 +341,6 @@ class VisitApiIntegrationTest {
                                 .contentType("application/json")
                                 .content("{}"))
                 .andExpect(status().isBadRequest());
-        mvc.perform(
-                        get("/api/visits/" + UUID.randomUUID())
-                                .header("Authorization", "Bearer " + token))
-                .andExpect(status().isNotFound());
     }
 
     String caregiverBody(long version) throws Exception {
@@ -370,9 +370,9 @@ class VisitApiIntegrationTest {
                                 .content(body(today, "CANCELED")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("GLOBAL_002"));
-        mvc.perform(get("/api/visits/" + id).header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.visitStatus").value("DONE"))
-                .andExpect(jsonPath("$.version").value(0));
+        mvc.perform(get("/api/visits").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.items[0].visitStatus").value("DONE"))
+                .andExpect(jsonPath("$.items[0].version").value(0));
     }
 
     @Test
@@ -430,9 +430,9 @@ class VisitApiIntegrationTest {
                                 .content(caregiverBody(0)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("GLOBAL_004"));
-        mvc.perform(get("/api/visits/" + id).header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.visitedOn").value(today.minusDays(1).toString()))
-                .andExpect(jsonPath("$.version").value(1));
+        mvc.perform(get("/api/visits").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.items[0].visitedOn").value(today.minusDays(1).toString()))
+                .andExpect(jsonPath("$.items[0].version").value(1));
         mvc.perform(
                         put("/api/visits/" + id)
                                 .header("Authorization", "Bearer " + caregiverToken)

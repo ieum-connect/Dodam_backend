@@ -15,8 +15,6 @@ public record AiDocumentExplanationStatusResponseDto(
         Integer progress,
         // 설명 생성이 완료된 시각입니다. 미완료이면 null일 수 있습니다. 예: 2025-09-30T10:00:00Z
         Instant completedAt,
-        // 설명 결과를 확인할 수 있는 경로입니다. 예: "/api/ai-documents/doc-001"
-        String detailUrl,
         // 실패가 발생한 처리 단계입니다. 실패가 아니면 null입니다. 예: "OCR"
         String failedStep,
         // 실패 원인 코드입니다. 실패가 아니면 null입니다. 예: "AI_TIMEOUT"

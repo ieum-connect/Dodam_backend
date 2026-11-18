@@ -1,6 +1,7 @@
 package com.ieum.dodam.global.config;
 
 import com.ieum.dodam.global.auth.application.AuthCookieService;
+import com.ieum.dodam.global.auth.oauth.KakaoAuthorizationRequests;
 import com.ieum.dodam.global.auth.oauth.KakaoLoginSuccessHandler;
 import com.ieum.dodam.global.auth.oauth.KakaoOAuth2UserService;
 import com.ieum.dodam.global.auth.security.JwtAuthFilter;
@@ -15,8 +16,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
-import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
-import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -48,10 +47,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(
-            HttpSecurity http,
-            ClientRegistrationRepository clients
-    ) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, ClientRegistrationRepository registrations) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
@@ -84,12 +80,15 @@ public class SecurityConfig {
                 .oauth2Login(oauth -> oauth
                         .loginPage(frontend.path("/login"))
                         .authorizationEndpoint(endpoint ->
-                                endpoint.authorizationRequestResolver(kakaoAuthorizationRequestResolver(clients)))
+                                endpoint.authorizationRequestResolver(new KakaoAuthorizationRequests(registrations)))
                         .successHandler(kakaoLoginSuccessHandler)
                         .userInfoEndpoint(user -> user.userService(kakaoOAuth2UserService))
                         .failureHandler((request, response, exception) -> {
-                            log.warn("카카오 로그인 실패: {}", exception.getMessage(), exception);
-                            response.sendRedirect(frontend.path("/login?error=" + loginError(exception)));
+                            String outcome = loginError(exception);
+                            if ("fail".equals(outcome)) {
+                                log.warn("카카오 인증 실패 ({})", exception.getClass().getSimpleName());
+                            }
+                            response.sendRedirect(frontend.path("/login?error=" + outcome));
                         })
                 )
                 .logout(logout -> logout
@@ -102,16 +101,6 @@ public class SecurityConfig {
                         .addLogoutHandler((request, response, authentication) -> authCookies.clear(response))
                 );
         return http.build();
-    }
-
-    private static OAuth2AuthorizationRequestResolver kakaoAuthorizationRequestResolver(
-            ClientRegistrationRepository clients
-    ) {
-        DefaultOAuth2AuthorizationRequestResolver resolver =
-                new DefaultOAuth2AuthorizationRequestResolver(clients, "/oauth2/authorization");
-        resolver.setAuthorizationRequestCustomizer(customizer ->
-                customizer.additionalParameters(params -> params.put("prompt", "login")));
-        return resolver;
     }
 
     static String loginError(Exception exception) {

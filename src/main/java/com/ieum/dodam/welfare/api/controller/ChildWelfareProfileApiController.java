@@ -12,6 +12,7 @@ import com.ieum.dodam.user.domain.repository.UserRepository;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.util.List;
@@ -42,9 +43,12 @@ public class ChildWelfareProfileApiController {
     }
 
     @GetMapping
-    public ProfileResponse get(@AuthenticationPrincipal OAuth2User principal, @RequestParam UUID patientId) {
+    public ResponseEntity<ProfileResponse> get(@AuthenticationPrincipal OAuth2User principal, @RequestParam UUID patientId) {
         authorize(principal, patientId);
-        return ProfileResponse.from(profiles.findByPatientId(patientId).orElseThrow(() -> new IllegalArgumentException("복지 프로필이 없습니다.")));
+        return profiles.findByPatientId(patientId)
+                .map(ProfileResponse::from)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @PutMapping("/{patientId}")

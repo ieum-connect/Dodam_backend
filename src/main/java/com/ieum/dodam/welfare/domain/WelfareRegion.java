@@ -57,6 +57,34 @@ public record WelfareRegion(WelfareRegionScope scope, String province, String di
     /** 사업 제공 지역과 사용자 거주지의 포함 관계. */
     public enum Coverage { COVERED, OUTSIDE, UNDETERMINED }
 
+    /**
+     * 사업이 제공하는 여러 지역 가운데 거주지 판정에 쓸 지역 하나를 고른다.
+     *
+     * <p>포함({@code COVERED}) &gt; 미확인({@code UNDETERMINED}) &gt; 벗어남({@code OUTSIDE}) 순으로 고르고,
+     * 같은 등급이면 더 좁은 범위를 고른다. 사업이 "경기도 전역 + 수원시"처럼 여러 지역을 제공할 때
+     * 하나라도 거주지를 포함하면 추천에서 제외되지 않도록 하기 위한 규칙이다.
+     */
+    public static WelfareRegion bestFor(List<WelfareRegion> regions, WelfareRegion user) {
+        if (regions == null || regions.isEmpty()) return UNKNOWN;
+        WelfareRegion best = null;
+        int bestRank = -1;
+        for (WelfareRegion candidate : regions) {
+            if (candidate == null) continue;
+            int rank = switch (candidate.covers(user)) {
+                case COVERED -> 2;
+                case UNDETERMINED -> 1;
+                case OUTSIDE -> 0;
+            };
+            boolean better = best == null || rank > bestRank
+                    || (rank == bestRank && candidate.scope().specificity() > best.scope().specificity());
+            if (better) {
+                best = candidate;
+                bestRank = rank;
+            }
+        }
+        return best == null ? UNKNOWN : best;
+    }
+
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
